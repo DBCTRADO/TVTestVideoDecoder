@@ -1,0 +1,90 @@
+
+
+    デジタル放送映像復号プログラム実装研究資料
+
+                                            デジタル放送総合技術研究開発機構
+
+
+◆ 概要
+
+  デジタル放送映像復号プログラム実装研究資料は、パーソナルコンピュータ上の汎用
+  OS において、デジタル放送の映像復号を行うプログラムの実装を研究する目的で頒布
+  される研究資料である。
+
+  この資料は MPEG-2 映像を復号するための基本的な機能を実装している。
+  CAS 処理は実装されていないため、一般のテレビ放送の視聴に用いることはできない。
+
+
+◆ 試験環境
+
+  ・OS
+      Windows Vista/7/8/10
+      ※XP での動作は確認していない
+
+  ・CPU
+      SSE2 対応 CPU
+      ※SSE2 非対応の CPU でも動作するはずだが、SIMD 拡張命令が一切使われない
+
+
+◆ 試験資料構築
+
+  Visual Studio 2013 のプロジェクトファイルを添付している。
+
+  予め DirectShow の BaseClasses ライブラリ(Windows SDK の Samples\Multimedia\
+  DirectShow\BaseClasses)のファイルを src/BaseClasses に複製しておく。
+
+  src フォルダ内のソリューションファイル(.sln)を Visual Studio で開いてビルドす
+  ることができる。以下のソリューションファイルを添付している。
+
+  ・TVTestMpeg2Decoder.sln      Visual C++ 2013
+  ・TVTestMpeg2Decoder.ICL.sln  Visual C++ 2013 + Intel C++ Composer XE 2015
+
+
+◆ 試験方法
+
+  TVTestVideoDecoder.ax を TVTest.exe と同じフォルダに配置すると、MPEG-2 デコー
+  ダとして選択できるようになる。
+
+  TVTest のメニューの「フィルタのプロバティ」から「映像デコーダ」を選択すると、
+  設定を行うことができる。
+
+  通常の DirectShow フィルタと同様に、regsvr32 でインストールすることも可能であ
+  る。インストール/アンインストールは管理者権限で行う必要がある。
+
+  インストール
+    regsvr32 TVTestVideoDecoder.ax
+
+  アンインストール
+    regsvr32 /u TVTestVideoDecoder.ax
+
+  インストールして使用するとレジストリの以下のキーに設定が保存される。
+    HKEY_CURRENT_USER\Software\DBCTRADO\TVTest DTV Video Decoder
+  以下のコマンドで設定を削除することができる。
+    rundll32 TVTestVideoDecoder.ax,Uninstall
+
+  インストールを行った場合においても、TVTest のフォルダに TVTestVideoDecoder.ax
+  が配置されていればそちらが優先して利用される。
+
+
+◆ 使用ライブラリ
+
+  この資料は以下のライブラリを利用している。
+
+    libmpeg2 0.5.1
+      Copyright (C) 2000-2004 Michel Lespinasse
+      Copyright (C) 1999-2000 Aaron Holtzman
+
+  libmpeg2 には主に以下の改変を行っている。
+
+  ・スライスのデコードをマルチスレッドで行えるようにした。
+  ・SSE2 の IDCT 及び動き補償をイントリンシック関数で実装し直した。
+  ・上記に伴い IDCT 精度が変更されたために、オリジナルの IDCT アセンブラコード
+    は無効になっている。
+  ・バッファオーバーフローを防止するための境界チェックを追加した。
+
+
+◆ 特記事項
+
+  ・この資料は GPLv3 に従って頒布される。
+  ・この資料の使用及び使用不能によって生じたいかなる損害も補償しない。
+

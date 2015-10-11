@@ -1,0 +1,7 @@
+EXPORTS
+	DllCanUnloadNow		PRIVATE
+	DllGetClassObject	PRIVATE
+	DllRegisterServer	PRIVATE
+	DllUnregisterServer	PRIVATE
+	UninstallW			PRIVATE
+	TVTestVideoDecoder_CreateInstance
