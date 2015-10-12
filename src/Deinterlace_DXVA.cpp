@@ -422,7 +422,8 @@ DXVA2_Fixed32 CDeinterlacer_DXVA::GetFilterDefaultValue(UINT FilterSetting)
 }
 
 CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
-	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopField)
+	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+	bool fTopField, int Field)
 {
 	const int Width = pDstBuffer->m_Width, Height = pDstBuffer->m_Height;
 

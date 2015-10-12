@@ -363,7 +363,8 @@ static void CopyFrameBuffer(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBu
 }
 
 
-CDeinterlacer_Yadif::CDeinterlacer_Yadif()
+CDeinterlacer_Yadif::CDeinterlacer_Yadif(bool fBob)
+	: m_fBob(fBob)
 {
 	for (int i = 0; i < _countof(m_Frames); i++) {
 		m_Frames[i] = nullptr;
@@ -390,7 +391,8 @@ void CDeinterlacer_Yadif::Finalize()
 }
 
 CDeinterlacer::FrameStatus CDeinterlacer_Yadif::GetFrame(
-	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFieldFirst)
+	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+	bool fTopFieldFirst, int Field)
 {
 	if (m_Frames[0] != nullptr
 			&& (pSrcBuffer->m_Width != m_Frames[0]->m_Width
@@ -426,18 +428,19 @@ CDeinterlacer::FrameStatus CDeinterlacer_Yadif::GetFrame(
 	}
 
 	const bool fTFF = !!(m_Frames[1]->m_Flags & FRAME_FLAG_TOP_FIELD_FIRST);
+	const int Parity = m_fBob ? (Field ^ !fTFF) : !fTFF;
 
 	Yadif_Plane(
 		pDstBuffer->m_Buffer[0], pDstBuffer->m_PitchY,
 		m_Frames[0]->m_Buffer[0], m_Frames[1]->m_Buffer[0], m_Frames[2]->m_Buffer[0],
 		m_Frames[0]->m_PitchY, pSrcBuffer->m_Width, pSrcBuffer->m_Height,
-		!fTFF, fTFF);
+		Parity, fTFF);
 	for (int i = 1; i < 3; i++) {
 		Yadif_Plane(
 			pDstBuffer->m_Buffer[i], pDstBuffer->m_PitchC,
 			m_Frames[0]->m_Buffer[i], m_Frames[1]->m_Buffer[i], m_Frames[2]->m_Buffer[i],
 			m_Frames[0]->m_PitchC, pSrcBuffer->m_Width / 2, pSrcBuffer->m_Height / 2,
-			!fTFF, fTFF);
+			Parity, fTFF);
 	}
 
 	pDstBuffer->CopyAttributesFrom(m_Frames[1]);

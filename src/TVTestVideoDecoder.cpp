@@ -66,6 +66,10 @@ CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLo
 	, m_fWaitForKeyFrame(true)
 	, m_fDropFrames(false)
 	, m_fLocalInstance(fLocal)
+
+	, m_Deinterlacer_Yadif(false)
+	, m_Deinterlacer_YadifBob(true)
+
 	, m_fEnableDeinterlace(true)
 	, m_DeinterlaceMethod(TVTVIDEODEC_DEINTERLACE_BLEND)
 	, m_fAdaptProgressive(true)
@@ -80,11 +84,12 @@ CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLo
 	, m_fCrop1088To1080(true)
 	, m_pFrameCapture(nullptr)
 {
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_WEAVE] = &m_Deinterlacer_Weave;
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_BLEND] = &m_Deinterlacer_Blend;
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_BOB  ] = &m_Deinterlacer_Bob;
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_ELA  ] = &m_Deinterlacer_ELA;
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_YADIF] = &m_Deinterlacer_Yadif;
+	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_WEAVE    ] = &m_Deinterlacer_Weave;
+	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_BLEND    ] = &m_Deinterlacer_Blend;
+	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_BOB      ] = &m_Deinterlacer_Bob;
+	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_ELA      ] = &m_Deinterlacer_ELA;
+	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_YADIF    ] = &m_Deinterlacer_Yadif;
+	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_YADIF_BOB] = &m_Deinterlacer_YadifBob;
 
 	m_RateChange.StartTime = 0;
 	m_RateChange.Rate = 10000;
@@ -642,9 +647,9 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 	CDeinterlacer::FrameStatus FrameStatus;
 	REFERENCE_TIME rtStop = INVALID_TIME;
 
-	FrameStatus = pDeinterlacer->GetFrame(&DstBuffer, &SrcBuffer, fTopFieldFirst);
+	FrameStatus = pDeinterlacer->GetFrame(&DstBuffer, &SrcBuffer, fTopFieldFirst, 0);
 	if (FrameStatus == CDeinterlacer::FRAME_SKIP) {
-		FrameStatus = m_Deinterlacer_Blend.GetFrame(&DstBuffer, &SrcBuffer, fTopFieldFirst);
+		FrameStatus = m_Deinterlacer_Blend.GetFrame(&DstBuffer, &SrcBuffer, fTopFieldFirst, 0);
 	}
 	if (FrameStatus == CDeinterlacer::FRAME_OK) {
 		if (pDeinterlacer->IsDoubleFrame()) {
@@ -663,7 +668,7 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 	pDeinterlacer->FramePostProcess(&DstBuffer, &SrcBuffer, fTopFieldFirst);
 
 	if (pDeinterlacer->IsDoubleFrame()) {
-		FrameStatus = pDeinterlacer->GetFrame(&DstBuffer, &SrcBuffer, !fTopFieldFirst);
+		FrameStatus = pDeinterlacer->GetFrame(&DstBuffer, &SrcBuffer, !fTopFieldFirst, 1);
 		if (FrameStatus == CDeinterlacer::FRAME_OK) {
 			if (rtStop >= 0) {
 				DstBuffer.m_rtStart = DstBuffer.m_rtStop;

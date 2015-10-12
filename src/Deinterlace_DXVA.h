@@ -39,7 +39,9 @@ public:
 
 	bool Initialize() override;
 	void Finalize() override;
-	FrameStatus GetFrame(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst) override;
+	FrameStatus GetFrame(
+		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+		bool fTopFiledFirst, int Field) override;
 
 private:
 	struct SampleInfo

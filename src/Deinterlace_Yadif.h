@@ -25,12 +25,16 @@
 class CDeinterlacer_Yadif : public CDeinterlacer
 {
 public:
-	CDeinterlacer_Yadif();
+	CDeinterlacer_Yadif(bool fBob);
 	~CDeinterlacer_Yadif();
 	bool Initialize() override;
 	void Finalize() override;
-	FrameStatus GetFrame(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFieldFirst) override;
+	FrameStatus GetFrame(
+		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+		bool fTopFieldFirst, int Field) override;
+	bool IsDoubleFrame() const override { return m_fBob; }
 
 private:
+	bool m_fBob;
 	CFrameBuffer *m_Frames[3];
 };

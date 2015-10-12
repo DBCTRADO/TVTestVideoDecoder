@@ -744,7 +744,8 @@ bool CDeinterlacer::IsFormatSupported(const GUID &SrcSubtype, const GUID &DstSub
 // CDeinterlacer_Weave
 
 CDeinterlacer::FrameStatus CDeinterlacer_Weave::GetFrame(
-	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst)
+	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+	bool fTopFiledFirst, int Field)
 {
 	if (pSrcBuffer->m_Subtype == MEDIASUBTYPE_I420) {
 		if (pDstBuffer->m_Subtype == MEDIASUBTYPE_I420) {
@@ -793,7 +794,8 @@ bool CDeinterlacer_Weave::IsFormatSupported(const GUID &SrcSubtype, const GUID &
 // CDeinterlacer_Blend
 
 CDeinterlacer::FrameStatus CDeinterlacer_Blend::GetFrame(
-	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst)
+	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+	bool fTopFiledFirst, int Field)
 {
 	DeinterlaceBlendI420(
 		pDstBuffer->m_Width, pDstBuffer->m_Height,
@@ -809,7 +811,8 @@ CDeinterlacer::FrameStatus CDeinterlacer_Blend::GetFrame(
 // CDeinterlacer_Bob
 
 CDeinterlacer::FrameStatus CDeinterlacer_Bob::GetFrame(
-	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst)
+	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+	bool fTopFiledFirst, int Field)
 {
 	DeinterlaceBobI420(
 		pDstBuffer->m_Width, pDstBuffer->m_Height,
@@ -826,7 +829,8 @@ CDeinterlacer::FrameStatus CDeinterlacer_Bob::GetFrame(
 // CDeinterlacer_ELA
 
 CDeinterlacer::FrameStatus CDeinterlacer_ELA::GetFrame(
-	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst)
+	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+	bool fTopFiledFirst, int Field)
 {
 	DeinterlaceELAI420(
 		pDstBuffer->m_Width, pDstBuffer->m_Height,
@@ -843,7 +847,8 @@ CDeinterlacer::FrameStatus CDeinterlacer_ELA::GetFrame(
 // CDeinterlacer_FieldShift
 
 CDeinterlacer::FrameStatus CDeinterlacer_FieldShift::GetFrame(
-	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst)
+	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+	bool fTopFiledFirst, int Field)
 {
 	const uint32_t Width = pDstBuffer->m_Width, Height = pDstBuffer->m_Height;
 	const ptrdiff_t DstPitchY = pDstBuffer->m_PitchY, DstPitchC = pDstBuffer->m_PitchC;

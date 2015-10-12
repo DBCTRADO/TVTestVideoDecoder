@@ -133,6 +133,7 @@ private:
 	CDeinterlacer_Bob m_Deinterlacer_Bob;
 	CDeinterlacer_ELA m_Deinterlacer_ELA;
 	CDeinterlacer_Yadif m_Deinterlacer_Yadif;
+	CDeinterlacer_Yadif m_Deinterlacer_YadifBob;
 	CDeinterlacer_DXVA m_Deinterlacer_DXVA;
 
 	CColorAdjustment m_ColorAdjustment;

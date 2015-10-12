@@ -34,6 +34,7 @@ BEGIN
 	IDS_DEINTERLACE_BOB,			"Bob [60fps]"
 	IDS_DEINTERLACE_ELA,			"ELA (Edge Line Average) [60fps]"
 	IDS_DEINTERLACE_YADIF,			"Yadif"
+	IDS_DEINTERLACE_YADIF_BOB,		"Yadif Bob [60fps]"
 
 	IDS_THREADS_AUTO,				"Ž©“®"
 

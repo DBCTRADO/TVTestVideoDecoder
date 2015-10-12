@@ -67,7 +67,9 @@ public:
 	virtual ~CDeinterlacer() {}
 	virtual bool Initialize() { return true; }
 	virtual void Finalize() {}
-	virtual FrameStatus GetFrame(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst) = 0;
+	virtual FrameStatus GetFrame(
+		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+		bool fTopFiledFirst, int Field = 0) = 0;
 	virtual bool FramePostProcess(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst) { return false; }
 	virtual bool IsDoubleFrame() const { return false; }
 	virtual bool IsRetainFrame() const { return false; }
@@ -77,34 +79,44 @@ public:
 class CDeinterlacer_Weave : public CDeinterlacer
 {
 public:
-	FrameStatus GetFrame(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst) override;
+	FrameStatus GetFrame(
+		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+		bool fTopFiledFirst, int Field) override;
 	bool IsFormatSupported(const GUID &SrcSubtype, const GUID &DstSubtype) const override;
 };
 
 class CDeinterlacer_Blend : public CDeinterlacer
 {
 public:
-	FrameStatus GetFrame(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst) override;
+	FrameStatus GetFrame(
+		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+		bool fTopFiledFirst, int Field) override;
 };
 
 class CDeinterlacer_Bob : public CDeinterlacer
 {
 public:
-	FrameStatus GetFrame(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst) override;
+	FrameStatus GetFrame(
+		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+		bool fTopFiledFirst, int Field) override;
 	bool IsDoubleFrame() const override { return true; }
 };
 
 class CDeinterlacer_ELA : public CDeinterlacer
 {
 public:
-	FrameStatus GetFrame(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst) override;
+	FrameStatus GetFrame(
+		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+		bool fTopFiledFirst, int Field) override;
 	bool IsDoubleFrame() const override { return true; }
 };
 
 class CDeinterlacer_FieldShift : public CDeinterlacer
 {
 public:
-	FrameStatus GetFrame(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst) override;
+	FrameStatus GetFrame(
+		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
+		bool fTopFiledFirst, int Field) override;
 	bool FramePostProcess(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer, bool fTopFiledFirst) override;
 	bool IsRetainFrame() const override { return true; }
 };
