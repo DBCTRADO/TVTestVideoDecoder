@@ -734,6 +734,7 @@ HRESULT CTVTestVideoDecoder::Deliver(IMediaSample *pOutSample, CFrameBuffer *pFr
 
 			m_pFrameCapture->OnFrame(
 				pFrameBuffer->m_Width, pFrameBuffer->m_Height,
+				pFrameBuffer->m_AspectX, pFrameBuffer->m_AspectY,
 				pFrameBuffer->m_Subtype, Buffer, Pitch, Flags);
 		}
 

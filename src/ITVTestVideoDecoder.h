@@ -76,7 +76,9 @@ struct TVTVIDEODEC_Statistics
 MIDL_INTERFACE("803267E1-0A79-4F9D-E167-3280790A9D4F")
 ITVTestVideoDecoderFrameCapture : public IUnknown
 {
-	STDMETHOD(OnFrame)(int Width, int Height, REFGUID subtype, const BYTE * const *Buffer, const int *Pitch, DWORD Flags) PURE;
+	STDMETHOD(OnFrame)(
+		int Width, int Height, int AspectX, int AspectY,
+		REFGUID subtype, const BYTE * const *Buffer, const int *Pitch, DWORD Flags) PURE;
 };
 
 MIDL_INTERFACE("5BF96108-6F7E-4D89-0861-F95B7E6F894D")
