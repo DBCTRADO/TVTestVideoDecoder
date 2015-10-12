@@ -923,7 +923,7 @@ HRESULT CTVTestVideoDecoder::StartStreaming()
 
 HRESULT CTVTestVideoDecoder::StopStreaming()
 {
-	m_Decoder.Close();
+	//m_Decoder.Close();
 
 	return __super::StopStreaming();
 }
