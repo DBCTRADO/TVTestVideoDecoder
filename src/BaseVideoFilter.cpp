@@ -190,8 +190,7 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 	CMediaType &mt = m_pOutput->CurrentMediaType();
 	bool fReconnect = fForce;
 
-	int OrigWidth = m_Dimensions.Width;
-	int OrigHeight = m_Dimensions.Height;
+	const VideoDimensions OrigDim = m_Dimensions;
 
 	if (Width != m_Dimensions.Width || Height != m_Dimensions.Height) {
 		m_Dimensions.Width = Width;
@@ -322,8 +321,7 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 						}
 						pOut->Release();
 					} else {
-						m_Dimensions.Width = OrigWidth;
-						m_Dimensions.Height = OrigHeight;
+						m_Dimensions = OrigDim;
 						return hr;
 					}
 				}
