@@ -159,9 +159,8 @@ private:
 	void SetTypeSpecificFlags(IMediaSample *pSample);
 	void InitDecode(bool fPutSequenceHeader);
 	void InitDeinterlacers();
-	void UpdateAspectRatio();
 
-	void GetOutputSize(int *pWidth, int *pHeight, int *pAspectX, int *pAspectY, int *pRealWidth, int *pRealHeight) override;
+	void GetOutputSize(VideoDimensions *pDimensions, int *pRealWidth, int *pRealHeight) override;
 	HRESULT Transform(IMediaSample *pIn) override;
 	bool IsVideoInterlaced() override;
 	void GetOutputFormatList(OutputFormatList *pFormatList) const override;

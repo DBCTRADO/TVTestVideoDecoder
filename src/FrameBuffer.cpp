@@ -33,6 +33,8 @@ CFrameBuffer::CFrameBuffer()
 	, m_pBuffer(nullptr)
 	, m_pSurface(nullptr)
 	, m_Subtype(GUID_NULL)
+	, m_AspectX(0)
+	, m_AspectY(0)
 	, m_rtStart(0)
 	, m_rtStop(0)
 	, m_Flags(0)
@@ -98,6 +100,21 @@ void CFrameBuffer::Free()
 	m_Subtype = GUID_NULL;
 }
 
+bool CFrameBuffer::CopyAttributesFrom(const CFrameBuffer *pBuffer)
+{
+	if (!pBuffer)
+		return false;
+
+	m_AspectX = pBuffer->m_AspectX;
+	m_AspectY = pBuffer->m_AspectY;
+	m_rtStart = pBuffer->m_rtStart;
+	m_rtStop = pBuffer->m_rtStop;
+	m_Flags = pBuffer->m_Flags;
+	m_Deinterlace = pBuffer->m_Deinterlace;
+
+	return true;
+}
+
 bool CFrameBuffer::CopyReferenceTo(CFrameBuffer *pBuffer) const
 {
 	if (!pBuffer)
@@ -113,10 +130,8 @@ bool CFrameBuffer::CopyReferenceTo(CFrameBuffer *pBuffer) const
 		pBuffer->m_Buffer[i] = m_Buffer[i];
 	pBuffer->m_pSurface = m_pSurface;
 	pBuffer->m_Subtype = m_Subtype;
-	pBuffer->m_rtStart = m_rtStart;
-	pBuffer->m_rtStop = m_rtStop;
-	pBuffer->m_Flags = m_Flags;
-	pBuffer->m_Deinterlace = m_Deinterlace;
+
+	pBuffer->CopyAttributesFrom(this);
 
 	return true;
 }

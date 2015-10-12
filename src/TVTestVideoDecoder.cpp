@@ -422,13 +422,21 @@ DWORD CTVTestVideoDecoder::GetVideoInfoControlFlags() const
 	return Flags;
 }
 
-void CTVTestVideoDecoder::GetOutputSize(
-	int *pWidth, int *pHeight, int *pAspectX, int *pAspectY, int *pRealWidth, int *pRealHeight)
+void CTVTestVideoDecoder::GetOutputSize(VideoDimensions *pDimensions, int *pRealWidth, int *pRealHeight)
 {
-	if (m_Decoder.GetOutputSize(pWidth, pHeight)) {
-		if (m_fCrop1088To1080 && *pHeight == 1088) {
-			*pHeight = 1080;
+	int Width, Height, AspectX, AspectY;
+
+	if (m_Decoder.GetOutputSize(&Width, &Height)) {
+		if (m_fCrop1088To1080 && Height == 1088) {
+			Height = 1080;
 		}
+		pDimensions->Width = Width;
+		pDimensions->Height = Height;
+	}
+
+	if (m_Decoder.GetAspectRatio(&AspectX, &AspectY)) {
+		pDimensions->AspectX = AspectX;
+		pDimensions->AspectY = AspectY;
 	}
 }
 
@@ -551,6 +559,8 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 						m_FrameBuffer.Allocate(Width, Height);
 					}
 
+					m_Decoder.GetAspectRatio(&m_FrameBuffer.m_AspectX, &m_FrameBuffer.m_AspectY);
+
 					m_FrameBuffer.m_rtStart = m_PictureStatus[m_Decoder.GetPictureIndex(picture)].rtStart;
 					if (m_FrameBuffer.m_rtStart < 0) {
 						m_FrameBuffer.m_rtStart = m_FrameBuffer.m_rtStop;
@@ -564,7 +574,6 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 					}
 
 					SetFrameStatus();
-					UpdateAspectRatio();
 
 					if (m_FrameBuffer.m_Flags & FRAME_FLAG_I_FRAME) {
 						m_fWaitForKeyFrame = false;
@@ -589,15 +598,6 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 	return S_OK;
 }
 
-void CTVTestVideoDecoder::UpdateAspectRatio()
-{
-	int AspectX, AspectY;
-
-	if (m_Decoder.GetAspectRatio(&AspectX, &AspectY)) {
-		SetAspectRatio(AspectX, AspectY);
-	}
-}
-
 HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 {
 	HRESULT hr;
@@ -614,6 +614,7 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 	IMediaSample *pOutSample;
 	hr = GetDeliveryBuffer(
 		&pOutSample, pFrameBuffer->m_Width, pFrameBuffer->m_Height,
+		pFrameBuffer->m_AspectX, pFrameBuffer->m_AspectY,
 		pDeinterlacer->IsDoubleFrame() ? m_AvgTimePerFrame / 2 : m_AvgTimePerFrame,
 		IsVideoInterlaced());
 	if (FAILED(hr)) {
@@ -622,9 +623,7 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 
 	CFrameBuffer SrcBuffer, DstBuffer;
 
-	SrcBuffer.m_rtStart = pFrameBuffer->m_rtStart;
-	SrcBuffer.m_rtStop = pFrameBuffer->m_rtStop;
-	SrcBuffer.m_Flags = pFrameBuffer->m_Flags;
+	SrcBuffer.CopyAttributesFrom(pFrameBuffer);
 
 	if (!m_Decoder.GetFrame(&SrcBuffer)) {
 		pOutSample->Release();

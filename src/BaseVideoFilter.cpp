@@ -70,14 +70,6 @@ CBaseVideoFilter::~CBaseVideoFilter()
 	SafeRelease(m_pD3DDeviceManager);
 }
 
-void CBaseVideoFilter::SetAspectRatio(int AspectX, int AspectY)
-{
-	if (m_Dimensions.AspectX != AspectX || m_Dimensions.AspectY != AspectY) {
-		m_Dimensions.AspectX = AspectX;
-		m_Dimensions.AspectY = AspectY;
-	}
-}
-
 int CBaseVideoFilter::GetPinCount()
 {
 	return 2;
@@ -125,7 +117,8 @@ HRESULT CBaseVideoFilter::Receive(IMediaSample *pIn)
 }
 
 HRESULT CBaseVideoFilter::GetDeliveryBuffer(
-	IMediaSample **ppOut, int Width, int Height, REFERENCE_TIME AvgTimePerFrame, bool fInterlaced)
+	IMediaSample **ppOut, int Width, int Height, int AspectX, int AspectY,
+	REFERENCE_TIME AvgTimePerFrame, bool fInterlaced)
 {
 	CheckPointer(ppOut, E_POINTER);
 
@@ -133,7 +126,7 @@ HRESULT CBaseVideoFilter::GetDeliveryBuffer(
 
 	HRESULT hr;
 
-	hr = ReconnectOutput(Width, Height, true, false, AvgTimePerFrame, fInterlaced);
+	hr = ReconnectOutput(Width, Height, AspectX, AspectY, true, false, AvgTimePerFrame, fInterlaced);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -190,17 +183,12 @@ void CBaseVideoFilter::SetupMediaType(CMediaType *pmt)
 }
 
 HRESULT CBaseVideoFilter::ReconnectOutput(
-	int Width, int Height, bool fSendSample, bool fForce,
+	int Width, int Height, int AspectX, int AspectY,
+	bool fSendSample, bool fForce,
 	REFERENCE_TIME AvgTimePerFrame, bool fInterlaced, int RealWidth, int RealHeight)
 {
 	CMediaType &mt = m_pOutput->CurrentMediaType();
 	bool fReconnect = fForce;
-
-	VideoDimensions Dim;
-	GetDimensions(mt, &Dim);
-	if (Dim.AspectX != m_Dimensions.AspectX || Dim.AspectY != m_Dimensions.AspectY) {
-		fReconnect = true;
-	}
 
 	int OrigWidth = m_Dimensions.Width;
 	int OrigHeight = m_Dimensions.Height;
@@ -208,6 +196,11 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 	if (Width != m_Dimensions.Width || Height != m_Dimensions.Height) {
 		m_Dimensions.Width = Width;
 		m_Dimensions.Height = Height;
+		fReconnect = true;
+	}
+	if (AspectX != m_Dimensions.AspectX || AspectY != m_Dimensions.AspectY) {
+		m_Dimensions.AspectX = AspectX;
+		m_Dimensions.AspectY = AspectY;
 		fReconnect = true;
 	}
 	if (m_Dimensions != m_OutDimensions) {
@@ -269,8 +262,15 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 		VIDEOINFOHEADER2 *pvih2 = (VIDEOINFOHEADER2*)pvih;
 		pvih2->dwInterlaceFlags =
 			fInterlaced ? (AMINTERLACE_IsInterlaced | AMINTERLACE_DisplayModeBobOrWeave) : 0;
-		pvih2->dwPictAspectRatioX = m_Dimensions.AspectX;
-		pvih2->dwPictAspectRatioY = m_Dimensions.AspectY;
+		if (m_Dimensions.AspectX && m_Dimensions.AspectY) {
+			pvih2->dwPictAspectRatioX = m_Dimensions.AspectX;
+			pvih2->dwPictAspectRatioY = m_Dimensions.AspectY;
+		} else {
+			int ARX = m_Dimensions.Width, ARY = m_Dimensions.Height;
+			ReduceFraction(&ARX, &ARY);
+			pvih2->dwPictAspectRatioX = ARX;
+			pvih2->dwPictAspectRatioY = ARY;
+		}
 		pbmih = &pvih2->bmiHeader;
 	} else {
 		return E_FAIL;
@@ -569,7 +569,7 @@ HRESULT CBaseVideoFilter::GetMediaType(int iPosition, CMediaType *pmt)
 
 	VideoDimensions Dim = m_InDimensions;
 	int RealWidth = 0, RealHeight = 0;
-	GetOutputSize(&Dim.Width, &Dim.Height, &Dim.AspectX, &Dim.AspectY, &RealWidth, &RealHeight);
+	GetOutputSize(&Dim, &RealWidth, &RealHeight);
 
 	BITMAPINFOHEADER *pbmih;
 
@@ -581,8 +581,8 @@ HRESULT CBaseVideoFilter::GetMediaType(int iPosition, CMediaType *pmt)
 		pmt->formattype = FORMAT_VideoInfo;
 		ZeroMemory(pvih, sizeof(VIDEOINFOHEADER));
 		pbmih = &pvih->bmiHeader;
-		pbmih->biXPelsPerMeter = pvih->bmiHeader.biWidth * Dim.AspectY;
-		pbmih->biYPelsPerMeter = pvih->bmiHeader.biHeight * Dim.AspectX;
+		pbmih->biXPelsPerMeter = Dim.Width * Dim.AspectY;
+		pbmih->biYPelsPerMeter = Dim.Height * Dim.AspectX;
 	} else {
 		VIDEOINFOHEADER2 *pvih2 = (VIDEOINFOHEADER2*)pmt->AllocFormatBuffer(sizeof(VIDEOINFOHEADER2));
 		if (!pvih2) {
@@ -592,6 +592,11 @@ HRESULT CBaseVideoFilter::GetMediaType(int iPosition, CMediaType *pmt)
 		ZeroMemory(pvih2, sizeof(VIDEOINFOHEADER2));
 		if (IsVideoInterlaced()) {
 			pvih2->dwInterlaceFlags = AMINTERLACE_IsInterlaced | AMINTERLACE_DisplayModeBobOrWeave;
+		}
+		if (!Dim.AspectX || !Dim.AspectY) {
+			Dim.AspectX = Dim.Width;
+			Dim.AspectY = Dim.Height;
+			ReduceFraction(&Dim.AspectX, &Dim.AspectY);
 		}
 		pvih2->dwPictAspectRatioX = Dim.AspectX;
 		pvih2->dwPictAspectRatioY = Dim.AspectY;
@@ -642,13 +647,15 @@ HRESULT CBaseVideoFilter::SetMediaType(PIN_DIRECTION dir, const CMediaType *pmt)
 		GetDimensions(*pmt, &m_Dimensions);
 		m_InDimensions = m_Dimensions;
 		int RealWidth = 0, RealHeight = 0;
-		GetOutputSize(&m_Dimensions.Width, &m_Dimensions.Height,
-					  &m_Dimensions.AspectX, &m_Dimensions.AspectY,
-					  &RealWidth, &RealHeight);
+		GetOutputSize(&m_Dimensions, &RealWidth, &RealHeight);
 		ReduceFraction(&m_Dimensions.AspectX, &m_Dimensions.AspectY);
+		TRACE(TEXT("SetMediaType() Input %d x %d (%d:%d)\n"),
+			  m_Dimensions.Width, m_Dimensions.Height, m_Dimensions.AspectX, m_Dimensions.AspectY);
 	} else if (dir == PINDIR_OUTPUT) {
 		VideoDimensions Dim;
 		GetDimensions(*pmt, &Dim);
+		TRACE(TEXT("SetMediaType() Output %d x %d (%d:%d)\n"),
+			  Dim.Width, Dim.Height, Dim.AspectX, Dim.AspectY);
 		if (m_Dimensions == Dim) {
 			m_OutDimensions = Dim;
 		}

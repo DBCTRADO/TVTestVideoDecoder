@@ -351,13 +351,6 @@ static void Yadif_Plane(
 	}
 }
 
-static void CopyFrameBufferAttributes(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer)
-{
-	pDstBuffer->m_rtStart = pSrcBuffer->m_rtStart;
-	pDstBuffer->m_rtStop = pSrcBuffer->m_rtStop;
-	pDstBuffer->m_Flags = pSrcBuffer->m_Flags;
-}
-
 static void CopyFrameBuffer(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer)
 {
 	PixelCopyI420ToI420(
@@ -366,7 +359,7 @@ static void CopyFrameBuffer(CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBu
 		pDstBuffer->m_PitchY, pDstBuffer->m_PitchC,
 		pSrcBuffer->m_Buffer[0], pSrcBuffer->m_Buffer[1], pSrcBuffer->m_Buffer[2],
 		pSrcBuffer->m_PitchY, pSrcBuffer->m_PitchC);
-	CopyFrameBufferAttributes(pDstBuffer, pSrcBuffer);
+	pDstBuffer->CopyAttributesFrom(pSrcBuffer);
 }
 
 
@@ -447,7 +440,7 @@ CDeinterlacer::FrameStatus CDeinterlacer_Yadif::GetFrame(
 			!fTFF, fTFF);
 	}
 
-	CopyFrameBufferAttributes(pDstBuffer, m_Frames[1]);
+	pDstBuffer->CopyAttributesFrom(m_Frames[1]);
 
 	return FRAME_OK;
 }

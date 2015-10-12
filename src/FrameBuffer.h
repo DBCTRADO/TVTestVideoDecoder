@@ -45,6 +45,8 @@ public:
 	uint8_t *m_Buffer[3];
 	interface IDirect3DSurface9 *m_pSurface;
 	GUID m_Subtype;
+	int m_AspectX;
+	int m_AspectY;
 	REFERENCE_TIME m_rtStart;
 	REFERENCE_TIME m_rtStop;
 	uint32_t m_Flags;
@@ -54,5 +56,6 @@ public:
 	~CFrameBuffer();
 	bool Allocate(int Width, int Height);
 	void Free();
+	bool CopyAttributesFrom(const CFrameBuffer *pBuffer);
 	bool CopyReferenceTo(CFrameBuffer *pBuffer) const;
 };

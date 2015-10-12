@@ -38,8 +38,6 @@ public:
 	CBaseVideoFilter(PCWSTR pName, LPUNKNOWN lpunk, HRESULT *phr, REFCLSID clsid, long cBuffers = 1);
 	virtual ~CBaseVideoFilter();
 
-	void SetAspectRatio(int AspectX, int AspectY);
-
 	virtual HRESULT CheckOutputType(const CMediaType *mtOut);
 
 // CTransformFilter
@@ -102,18 +100,20 @@ protected:
 
 	HRESULT GetDeliveryBuffer(
 		IMediaSample **ppOut, int Width, int Height,
+		int AspectX = 0, int AspectY = 0,
 		REFERENCE_TIME AvgTimePerFrame = 0, bool fInterlaced = false);
 	HRESULT GetDeliveryBuffer(IMediaSample **ppOut);
 	void SetupMediaType(CMediaType *pmt);
 	HRESULT CopySampleBuffer(BYTE *pOut, const CFrameBuffer *pSrc, bool fInterlaced = false);
 	HRESULT ReconnectOutput(
-		int Width, int Height, bool fSendSample = true, bool fForce = false,
+		int Width, int Height, int AspectX = 0, int AspectY = 0,
+		bool fSendSample = true, bool fForce = false,
 		REFERENCE_TIME AvgTimePerFrame = 0, bool fInterlaced = false, int RealWidth = 0, int RealHeight = 0);
 	static bool GetDimensions(const AM_MEDIA_TYPE &mt, VideoDimensions *pDimensions);
 
 	virtual void GetOutputFormatList(OutputFormatList *pFormatList) const = 0;
 	virtual HRESULT Transform(IMediaSample *pIn) = 0;
-	virtual void GetOutputSize(int *pWidth, int *pHeight, int *pAspectX, int *pAspectY, int *pRealWidth, int *pRealHeight) {}
+	virtual void GetOutputSize(VideoDimensions *pDimensions, int *pRealWidth, int *pRealHeight) {}
 	virtual bool IsVideoInterlaced() { return false; }
 	virtual DWORD GetVideoInfoControlFlags() const { return 0; }
 	virtual HRESULT OnDXVAConnect(IPin *pPin) { return S_OK; }
