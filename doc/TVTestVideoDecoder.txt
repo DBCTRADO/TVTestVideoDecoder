@@ -36,8 +36,8 @@
   src フォルダ内のソリューションファイル(.sln)を Visual Studio で開いてビルドす
   ることができる。以下のソリューションファイルを添付している。
 
-  ・TVTestMpeg2Decoder.sln      Visual C++ 2013
-  ・TVTestMpeg2Decoder.ICL.sln  Visual C++ 2013 + Intel C++ Composer XE 2015
+  ・TVTestVideoDecoder.sln      Visual C++ 2013
+  ・TVTestVideoDecoder.ICL.sln  Visual C++ 2013 + Intel C++ Composer XE 2015
 
 
 ◆ 試験方法
