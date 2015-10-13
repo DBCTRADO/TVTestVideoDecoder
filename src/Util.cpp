@@ -71,6 +71,22 @@ bool IsVideoInfo2(const AM_MEDIA_TYPE *pmt)
 		&& pmt->pbFormat != nullptr;
 }
 
+bool IsMpeg1VideoInfo(const AM_MEDIA_TYPE *pmt)
+{
+	return pmt != nullptr
+		&& pmt->formattype == FORMAT_MPEGVideo
+		&& pmt->cbFormat >= sizeof(MPEG1VIDEOINFO)
+		&& pmt->pbFormat != nullptr;
+}
+
+bool IsMpeg2VideoInfo(const AM_MEDIA_TYPE *pmt)
+{
+	return pmt != nullptr
+		&& pmt->formattype == FORMAT_MPEG2_VIDEO
+		&& pmt->cbFormat >= sizeof(MPEG2VIDEOINFO)
+		&& pmt->pbFormat != nullptr;
+}
+
 bool GetAvgTimePerFrame(const AM_MEDIA_TYPE *pmt, REFERENCE_TIME *prtAvgTimePerFrame)
 {
 	REFERENCE_TIME rt;

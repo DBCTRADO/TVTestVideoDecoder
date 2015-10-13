@@ -196,11 +196,11 @@ void CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 		const BYTE *pSequenceHeader = nullptr;
 		DWORD cbSequenceHeader = 0;
 
-		if (mt.formattype == FORMAT_MPEGVideo) {
+		if (IsMpeg1VideoInfo(&mt)) {
 			const MPEG1VIDEOINFO *pmpg1vi = (const MPEG1VIDEOINFO*)mt.Format();
 			pSequenceHeader = pmpg1vi->bSequenceHeader;
 			cbSequenceHeader = pmpg1vi->cbSequenceHeader;
-		} else if (mt.formattype == FORMAT_MPEG2_VIDEO) {
+		} else if (IsMpeg2VideoInfo(&mt)) {
 			const MPEG2VIDEOINFO *pmpg2vi = (const MPEG2VIDEOINFO*)mt.Format();
 			pSequenceHeader = (const BYTE*)pmpg2vi->dwSequenceHeader;
 			cbSequenceHeader = pmpg2vi->cbSequenceHeader;
@@ -856,8 +856,7 @@ HRESULT CTVTestVideoDecoder::SetupOutputFrameBuffer(
 
 HRESULT CTVTestVideoDecoder::CheckInputType(const CMediaType *mtIn)
 {
-	if (mtIn->formattype == FORMAT_MPEG2_VIDEO
-			&& mtIn->pbFormat && mtIn->cbFormat >= sizeof(MPEG2VIDEOINFO)) {
+	if (IsMpeg2VideoInfo(mtIn)) {
 		const MPEG2VIDEOINFO *pmp2vi = (const MPEG2VIDEOINFO*)mtIn->pbFormat;
 
 		if (pmp2vi->cbSequenceHeader >= 4) {

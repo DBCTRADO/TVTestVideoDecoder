@@ -375,8 +375,7 @@ bool CBaseVideoFilter::GetDimensions(const AM_MEDIA_TYPE &mt, VideoDimensions *p
 	}
 
 	if (!AspectX || !AspectY) {
-		if (mt.formattype == FORMAT_MPEGVideo
-				&& mt.pbFormat && mt.cbFormat >= sizeof(MPEG1VIDEOINFO)) {
+		if (IsMpeg1VideoInfo(&mt)) {
 			const MPEG1VIDEOINFO *pmpg1vi = (const MPEG1VIDEOINFO*)mt.pbFormat;
 			const BYTE *p = pmpg1vi->bSequenceHeader;
 
@@ -393,8 +392,7 @@ bool CBaseVideoFilter::GetDimensions(const AM_MEDIA_TYPE &mt, VideoDimensions *p
 					AspectY = Height;
 				}
 			}
-		} else if (mt.formattype == FORMAT_MPEG2_VIDEO
-				&& mt.pbFormat && mt.cbFormat >= sizeof(MPEG2VIDEOINFO)) {
+		} else if (IsMpeg2VideoInfo(&mt)) {
 			const MPEG2VIDEOINFO *pmpg2vi = (const MPEG2VIDEOINFO*)mt.pbFormat;
 			const BYTE *p = (const BYTE*)pmpg2vi->dwSequenceHeader;
 
