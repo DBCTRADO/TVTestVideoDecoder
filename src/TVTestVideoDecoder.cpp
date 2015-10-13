@@ -191,6 +191,7 @@ void CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 	m_Decoder.SetNumThreads(m_NumThreads);
 	m_Decoder.Open();
 
+#if 0
 	if (fPutSequenceHeader) {
 		const CMediaType &mt = m_pInput->CurrentMediaType();
 		const BYTE *pSequenceHeader = nullptr;
@@ -210,6 +211,7 @@ void CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 			m_Decoder.PutBuffer(pSequenceHeader, cbSequenceHeader);
 		}
 	}
+#endif
 
 	for (int i = 0; i < _countof(m_PictureStatus); i++) {
 		m_PictureStatus[i].rtStart = INVALID_TIME;
