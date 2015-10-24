@@ -22,6 +22,7 @@
 #include "TVTestVideoDecoderStat.h"
 #include "Util.h"
 #include "MediaTypes.h"
+#include "Version.h"
 #include "resource.h"
 
 
@@ -153,6 +154,18 @@ TVTVIDEODEC_EXPORT void CALLBACK UninstallW(
 	}
 }
 
+
+TVTVIDEODEC_EXPORT BOOL WINAPI TVTestVideoDecoder_GetInfo(TVTestVideoDecoderInfo *pInfo)
+{
+	if (!pInfo || pInfo->HostVersion != TVTVIDEODEC_HOST_VERSION)
+		return FALSE;
+
+	pInfo->ModuleVersion = TVTVIDEODEC_VERSION_(
+		TVTVIDEODEC_VERSION_MAJOR, TVTVIDEODEC_VERSION_MINOR, TVTVIDEODEC_VERSION_REV);
+	pInfo->InterfaceVersion = TVTVIDEODEC_INTERFACE_VERSION;
+
+	return TRUE;
+}
 
 TVTVIDEODEC_EXPORT HRESULT WINAPI TVTestVideoDecoder_CreateInstance(ITVTestVideoDecoder **ppDecoder)
 {
