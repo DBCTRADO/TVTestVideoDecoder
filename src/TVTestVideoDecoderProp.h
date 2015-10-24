@@ -56,6 +56,7 @@ private:
 		int Hue;
 		int Saturation;
 		int NumThreads;
+		bool fEnableDXVA2;
 	};
 
 	ITVTestVideoDecoder *m_pDecoder;

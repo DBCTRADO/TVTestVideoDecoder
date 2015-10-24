@@ -12,7 +12,7 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public 7License
+ *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -39,6 +39,8 @@ class CTVTestVideoDecoder
 	, public ITVTestVideoDecoder
 	, public ISpecifyPropertyPages2
 {
+	friend class CMpeg2DecoderDXVA2;
+
 public:
 	CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT *phr, bool fLocal = false);
 	~CTVTestVideoDecoder();
@@ -97,6 +99,8 @@ public:
 
 	STDMETHODIMP SetNumThreads(int NumThreads) override;
 	STDMETHODIMP_(int) GetNumThreads() override;
+	STDMETHODIMP SetEnableDXVA2(BOOL fEnable) override;
+	STDMETHODIMP_(BOOL) GetEnableDXVA2() override;
 
 	STDMETHODIMP LoadOptions() override;
 	STDMETHODIMP SaveOptions() override;
@@ -106,14 +110,8 @@ public:
 	STDMETHODIMP SetFrameCapture(ITVTestVideoDecoderFrameCapture *pFrameCapture) override;
 
 private:
-	struct PictureStatus
-	{
-		REFERENCE_TIME rtStart;
-	};
-
-	CMpeg2Decoder m_Decoder;
+	CMpeg2Decoder *m_pDecoder;
 	CFrameBuffer m_FrameBuffer;
-	PictureStatus m_PictureStatus[4];
 	REFERENCE_TIME m_AvgTimePerFrame;
 	bool m_fWaitForKeyFrame;
 	bool m_fDropFrames;
@@ -139,6 +137,7 @@ private:
 	CColorAdjustment m_ColorAdjustment;
 
 	CCritSec m_csProps;
+	bool m_fDXVA2Decode;
 	bool m_fEnableDeinterlace;
 	TVTVIDEODEC_DeinterlaceMethod m_DeinterlaceMethod;
 	bool m_fAdaptProgressive;
@@ -166,7 +165,9 @@ private:
 	bool IsVideoInterlaced() override;
 	void GetOutputFormatList(OutputFormatList *pFormatList) const override;
 	DWORD GetVideoInfoControlFlags() const override;
-	HRESULT OnDXVAConnect(IPin *pPin) override;
+	HRESULT OnDXVA2Connect(IPin *pPin) override;
+	HRESULT OnDXVA2SurfaceCreated(IDirect3DSurface9 **ppSurface, int SurfaceCount) override;
+	HRESULT OnDXVA2AllocatorDecommit() override;
 };
 
 class CMpeg2DecoderInputPin

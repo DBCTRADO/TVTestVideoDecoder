@@ -95,6 +95,7 @@ HRESULT CTVTestVideoDecoderProp::OnDisconnect()
 		m_pDecoder->SetHue(m_OldSettings.Hue);
 		m_pDecoder->SetSaturation(m_OldSettings.Saturation);
 		m_pDecoder->SetNumThreads(m_OldSettings.NumThreads);
+		m_pDecoder->SetEnableDXVA2(m_OldSettings.fEnableDXVA2);
 
 		m_pDecoder->SaveOptions();
 
@@ -122,7 +123,11 @@ HRESULT CTVTestVideoDecoderProp::OnActivate()
 	m_OldSettings.Hue = m_pDecoder->GetHue();
 	m_OldSettings.Saturation = m_pDecoder->GetSaturation();
 	m_OldSettings.NumThreads = m_pDecoder->GetNumThreads();
+	m_OldSettings.fEnableDXVA2 = m_pDecoder->GetEnableDXVA2() != FALSE;
 	m_NewSettings = m_OldSettings;
+
+	::CheckDlgButton(m_Dlg, IDC_PROP_ENABLE_DXVA2,
+					 m_OldSettings.fEnableDXVA2 ? BST_CHECKED : BST_UNCHECKED);
 
 	::CheckRadioButton(m_Dlg, IDC_PROP_DEINTERLACE_ENABLE, IDC_PROP_DEINTERLACE_DISABLE,
 					   m_OldSettings.fEnableDeinterlace ? IDC_PROP_DEINTERLACE_ENABLE : IDC_PROP_DEINTERLACE_DISABLE);
@@ -229,6 +234,18 @@ INT_PTR CTVTestVideoDecoderProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 	switch (uMsg) {
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
+		case IDC_PROP_ENABLE_DXVA2:
+			if (m_pDecoder) {
+				bool fEnableDXVA2 =
+					::IsDlgButtonChecked(hwnd, IDC_PROP_ENABLE_DXVA2) == BST_CHECKED;
+				if (fEnableDXVA2 != m_NewSettings.fEnableDXVA2) {
+					m_NewSettings.fEnableDXVA2 = fEnableDXVA2;
+					//m_pDecoder->SetEnableDXVA2(fEnableDXVA2);
+					MakeDirty();
+				}
+			}
+			return TRUE;
+
 		case IDC_PROP_DEINTERLACE_ENABLE:
 		case IDC_PROP_DEINTERLACE_DISABLE:
 			if (m_pDecoder) {

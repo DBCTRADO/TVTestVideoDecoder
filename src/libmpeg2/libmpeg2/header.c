@@ -589,8 +589,12 @@ int mpeg2_header_picture (mpeg2dec_t * mpeg2dec)
     decoder->intra_dc_precision = 0;
     decoder->frame_pred_frame_dct = 1;
     decoder->concealment_motion_vectors = 0;
+    decoder->alternate_scan = 0;
     decoder->scan = mpeg2_scan_norm;
     decoder->picture_structure = FRAME_PICTURE;
+    decoder->repeat_first_field = 0;
+    decoder->chroma_420_type = 1;
+    decoder->progressive_frame = 1;
     mpeg2dec->copy_matrix = 0;
 
     return 0;
@@ -632,10 +636,14 @@ static int picture_coding_ext (mpeg2dec_t * mpeg2dec)
     decoder->top_field_first = buffer[3] >> 7;
     decoder->frame_pred_frame_dct = (buffer[3] >> 6) & 1;
     decoder->concealment_motion_vectors = (buffer[3] >> 5) & 1;
-    decoder->q_scale_type = buffer[3] & 16;
+    decoder->q_scale_type = (buffer[3] >> 4) & 1;
     decoder->intra_vlc_format = (buffer[3] >> 3) & 1;
-    decoder->scan = (buffer[3] & 4) ? mpeg2_scan_alt : mpeg2_scan_norm;
-    if (!(buffer[4] & 0x80))
+    decoder->alternate_scan = (buffer[3] >> 2) & 1;
+    decoder->scan = decoder->alternate_scan ? mpeg2_scan_alt : mpeg2_scan_norm;
+    decoder->repeat_first_field = (buffer[3] >> 1) & 1;
+    decoder->chroma_420_type = buffer[3] & 1;
+    decoder->progressive_frame = (buffer[4] >> 7) & 1;
+    if (!decoder->progressive_frame)
 	flags &= ~PIC_FLAG_PROGRESSIVE_FRAME;
     if (buffer[4] & 0x40)
 	flags |= (((buffer[4]<<26) | (buffer[5]<<18) | (buffer[6]<<10)) &

@@ -22,6 +22,7 @@
 #include <initguid.h>
 #include "BaseVideoFilter.h"
 #include "PixelFormatConvert.h"
+#include "DXVA2Allocator.h"
 #include "Util.h"
 #include "MediaTypes.h"
 
@@ -33,10 +34,11 @@ CBaseVideoFilter::CBaseVideoFilter(PCWSTR pName, LPUNKNOWN lpunk, HRESULT *phr, 
 	, m_cBuffers(cBuffers)
 
 	, m_pD3DDeviceManager(nullptr)
-	, m_pDecoderService(nullptr)
 	, m_hDXVADevice(nullptr)
+	, m_pDXVA2Allocator(nullptr)
 	, m_fDXVAConnect(false)
 	, m_fDXVAOutput(false)
+	, m_fAttachMediaType(false)
 {
 	*phr = S_OK;
 
@@ -62,7 +64,7 @@ CBaseVideoFilter::CBaseVideoFilter(PCWSTR pName, LPUNKNOWN lpunk, HRESULT *phr, 
 
 CBaseVideoFilter::~CBaseVideoFilter()
 {
-	SafeRelease(m_pDecoderService);
+	SafeRelease(m_pDXVA2Allocator);
 	if (m_hDXVADevice != nullptr) {
 		m_pD3DDeviceManager->CloseDeviceHandle(m_hDXVADevice);
 		m_hDXVADevice = nullptr;
@@ -292,8 +294,10 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 	}
 #endif
 
-	if (m_fDXVAConnect) {
+	if (m_fDXVAOutput) {
+		RecommitAllocator();
 		hr = m_pOutput->SetMediaType(&mt);
+		m_fAttachMediaType = true;
 	} else {
 		int RetryTimeout = 100;
 
@@ -345,11 +349,51 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 
 	m_OutDimensions = m_Dimensions;
 
-	if (!m_fDXVAConnect) {
+	if (!m_fDXVAOutput) {
 		NotifyEvent(EC_VIDEO_SIZE_CHANGED, MAKELPARAM(m_Dimensions.Width, m_Dimensions.Height), 0);
 	}
 
 	return S_OK;
+}
+
+HRESULT CBaseVideoFilter::InitAllocator(IMemAllocator **ppAllocator)
+{
+	if (m_fDXVAOutput) {
+		TRACE(TEXT("Create DXVA2 Allocator\n"));
+		SafeRelease(m_pDXVA2Allocator);
+		HRESULT hr = S_OK;
+		m_pDXVA2Allocator = DNew_nothrow CDXVA2Allocator(this, &hr);
+		if (!m_pDXVA2Allocator) {
+			return E_OUTOFMEMORY;
+		}
+		if (FAILED(hr)) {
+			SafeDelete(m_pDXVA2Allocator);
+			return hr;
+		}
+		m_pDXVA2Allocator->AddRef();
+
+		return m_pDXVA2Allocator->QueryInterface(IID_PPV_ARGS(ppAllocator));
+	}
+
+	return S_OK;
+}
+
+HRESULT CBaseVideoFilter::RecommitAllocator()
+{
+	HRESULT hr = S_OK;
+
+	if (m_pDXVA2Allocator) {
+		TRACE(TEXT("Recommit DXVA2 Allocator\n"));
+		OnDXVA2AllocatorDecommit();
+		m_pDXVA2Allocator->Decommit();
+		if (m_pDXVA2Allocator->IsDecommitInProgress()) {
+			m_pOutput->GetConnected()->BeginFlush();
+			m_pOutput->GetConnected()->EndFlush();
+		}
+		hr = m_pDXVA2Allocator->Commit();
+	}
+
+	return hr;
 }
 
 bool CBaseVideoFilter::GetDimensions(const AM_MEDIA_TYPE &mt, VideoDimensions *pDimensions)
@@ -689,33 +733,34 @@ HRESULT CBaseVideoFilter::CompleteConnect(PIN_DIRECTION direction, IPin *pReceiv
 				if (SUCCEEDED(hr)) {
 					m_hDXVADevice = hDevice;
 
-					hr = OnDXVAConnect(pReceivePin);
+					IDirectXVideoMemoryConfiguration *pVMemConfig;
+					hr = pGetService->GetService(
+						MR_VIDEO_ACCELERATION_SERVICE, IID_PPV_ARGS(&pVMemConfig));
 					if (SUCCEEDED(hr)) {
-						IDirectXVideoMemoryConfiguration *pVMemConfig;
-						hr = pGetService->GetService(
-							MR_VIDEO_ACCELERATION_SERVICE, IID_PPV_ARGS(&pVMemConfig));
-						if (SUCCEEDED(hr)) {
-							for (DWORD i = 0; ; i++) {
-								DXVA2_SurfaceType SurfaceType;
+						for (DWORD i = 0; ; i++) {
+							DXVA2_SurfaceType SurfaceType;
 
-								hr = pVMemConfig->GetAvailableSurfaceTypeByIndex(i, &SurfaceType);
-								if (FAILED(hr))
-									break;
-								if (SurfaceType == DXVA2_SurfaceType_DecoderRenderTarget) {
-									hr = pVMemConfig->SetSurfaceType(DXVA2_SurfaceType_DecoderRenderTarget);
-									TRACE(TEXT("IDirectXVideoMemoryConfiguration::SetSurfaceType() %s (%x)\n"),
-										  SUCCEEDED(hr) ? TEXT("succeeded") : TEXT("failed"), hr);
-									break;
-								}
+							hr = pVMemConfig->GetAvailableSurfaceTypeByIndex(i, &SurfaceType);
+							if (FAILED(hr))
+								break;
+							if (SurfaceType == DXVA2_SurfaceType_DecoderRenderTarget) {
+								hr = pVMemConfig->SetSurfaceType(DXVA2_SurfaceType_DecoderRenderTarget);
+								TRACE(TEXT("IDirectXVideoMemoryConfiguration::SetSurfaceType() %s (%x)\n"),
+									  SUCCEEDED(hr) ? TEXT("succeeded") : TEXT("failed"), hr);
+								break;
 							}
-
-							pVMemConfig->Release();
 						}
+
+						pVMemConfig->Release();
 					}
 				}
 
 				pGetService->Release();
 			}
+		}
+
+		if (SUCCEEDED(hr)) {
+			hr = OnDXVA2Connect(pReceivePin);
 		}
 
 		if (SUCCEEDED(hr)) {
@@ -730,6 +775,25 @@ HRESULT CBaseVideoFilter::CompleteConnect(PIN_DIRECTION direction, IPin *pReceiv
 	}
 
 	return S_OK;
+}
+
+int CBaseVideoFilter::GetAlignedWidth() const
+{
+	/*
+		NOTE: from ffmpeg
+		decoding MPEG-2 requires additional alignment on some Intel GPUs,
+		but it causes issues for H.264 on certain AMD GPUs.....
+	*/
+	// int Align = is_mpeg2 ? 32 : 16;
+	int Align = 32;
+	return (m_Dimensions.Width + (Align - 1)) & ~(Align - 1);
+}
+
+int CBaseVideoFilter::GetAlignedHeight() const
+{
+	// int Align = is_mpeg2 ? 32 : 16;
+	int Align = 32;
+	return (m_Dimensions.Height + (Align - 1)) & ~(Align - 1);
 }
 
 
@@ -886,207 +950,8 @@ HRESULT CBaseVideoOutputPin::InitAllocator(IMemAllocator **ppAllocator)
 	CheckPointer(ppAllocator, E_POINTER);
 
 	if (m_pFilter->m_fDXVAOutput) {
-		HRESULT hr = S_OK;
-		*ppAllocator = DNew_nothrow CDXVA2Allocator(m_pFilter, &hr);
-		if (!*ppAllocator)
-			return E_OUTOFMEMORY;
-		if (FAILED(hr)) {
-			SafeDelete(*ppAllocator);
-			return hr;
-		}
-		(*ppAllocator)->AddRef();
-		return S_OK;
+		return m_pFilter->InitAllocator(ppAllocator);
 	}
 
 	return __super::InitAllocator(ppAllocator);
-}
-
-
-// CDXVA2Allocator
-
-CDXVA2Allocator::CDXVA2Allocator(CBaseVideoFilter *pFilter, HRESULT *phr)
-	: CBaseAllocator(L"DXVA2Allocator", nullptr, phr)
-	, m_pFilter(pFilter)
-{
-	m_pFilter->AddRef();
-}
-
-CDXVA2Allocator::~CDXVA2Allocator()
-{
-	SafeRelease(m_pFilter);
-}
-
-HRESULT CDXVA2Allocator::Alloc()
-{
-	CAutoLock Lock(this);
-
-	TRACE(TEXT("CDXVA2Allocator::Alloc()\n"));
-
-	if (!m_pFilter->m_pD3DDeviceManager)
-		return E_UNEXPECTED;
-
-	HRESULT hr;
-
-	IDirectXVideoDecoderService *pDecoderService;
-	hr = m_pFilter->m_pD3DDeviceManager->GetVideoService(
-		m_pFilter->m_hDXVADevice, IID_PPV_ARGS(&pDecoderService));
-	if (FAILED(hr)) {
-		TRACE(TEXT("IDirect3DDeviceManager9::GetVideoService() failed (%x)\n"), hr);
-		return hr;
-	}
-
-	hr = CBaseAllocator::Alloc();
-
-	/*
-	if (hr == S_FALSE) {
-		pDecoderDevice->Release();
-		return S_OK;
-	}
-	*/
-
-	if (SUCCEEDED(hr)) {
-		Free();
-
-		m_SurfaceList.resize(m_lCount);
-
-		hr = pDecoderService->CreateSurface(
-			(m_pFilter->m_Dimensions.Width + 15) & ~15,
-			(m_pFilter->m_Dimensions.Height + 15) & ~15,
-			m_lCount - 1,
-			D3DFMT_NV12,
-			D3DPOOL_DEFAULT,
-			0,
-			DXVA2_VideoDecoderRenderTarget,
-			&m_SurfaceList[0],
-			nullptr);
-		if (FAILED(hr)) {
-			TRACE(TEXT("IDirectXVideoDecoderService::CreateSurface() failed (%x)\n"), hr);
-			m_SurfaceList.clear();
-		} else {
-			IDirect3DDevice9 *pD3DDevice;
-			hr = m_SurfaceList.front()->GetDevice(&pD3DDevice);
-			if (FAILED(hr))
-				pD3DDevice = nullptr;
-
-			for (m_lAllocated = 0; m_lAllocated < m_lCount; m_lAllocated++) {
-				IDirect3DSurface9 *pSurface = m_SurfaceList[m_lAllocated];
-
-				if (pD3DDevice) {
-					pD3DDevice->ColorFill(pSurface, nullptr, D3DCOLOR_XYUV(16, 128, 128));
-				}
-
-				CDXVA2MediaSample *pSample = DNew_nothrow CDXVA2MediaSample(this, &hr);
-
-				if (!pSample) {
-					hr = E_OUTOFMEMORY;
-					break;
-				}
-				if (FAILED(hr)) {
-					break;
-				}
-
-				pSample->SetSurface(m_lAllocated, pSurface);
-				m_lFree.Add(pSample);
-			}
-
-			if (pD3DDevice)
-				pD3DDevice->Release();
-		}
-	}
-
-	pDecoderService->Release();
-
-	if (SUCCEEDED(hr)) {
-		m_bChanged = FALSE;
-	}
-
-	return hr;
-}
-
-void CDXVA2Allocator::Free()
-{
-	TRACE(TEXT("CDXVA2Allocator::Free()\n"));
-
-	IMediaSample *pSample;
-	while ((pSample = m_lFree.RemoveHead()) != nullptr) {
-		delete pSample;
-	}
-
-	if (!m_SurfaceList.empty()) {
-		for (auto e: m_SurfaceList) {
-			SafeRelease(e);
-		}
-		m_SurfaceList.clear();
-	}
-
-	m_lAllocated = 0;
-}
-
-
-// CDXVA2MediaSample
-
-CDXVA2MediaSample::CDXVA2MediaSample(CDXVA2Allocator *pAllocator, HRESULT *phr)
-	: CMediaSample(L"DXVA2MediaSample", pAllocator, phr, nullptr, 0)
-	, m_pSurface(nullptr)
-	, m_SurfaceID(0)
-{
-}
-
-CDXVA2MediaSample::~CDXVA2MediaSample()
-{
-	SafeRelease(m_pSurface);
-}
-
-STDMETHODIMP CDXVA2MediaSample::QueryInterface(REFIID riid, void **ppv)
-{
-	CheckPointer(ppv, E_POINTER);
-
-	if (riid == IID_IMFGetService) {
-		*ppv = static_cast<IMFGetService*>(this);
-		AddRef();
-		return S_OK;
-	}
-
-	return CMediaSample::QueryInterface(riid, ppv);
-}
-
-STDMETHODIMP_(ULONG) CDXVA2MediaSample::AddRef()
-{
-    return CMediaSample::AddRef();
-}
-
-STDMETHODIMP_(ULONG) CDXVA2MediaSample::Release()
-{
-	return CMediaSample::Release();
-}
-
-void CDXVA2MediaSample::SetSurface(DWORD SurfaceID, IDirect3DSurface9 *pSurface)
-{
-	SafeRelease(m_pSurface);
-
-	m_pSurface = pSurface;
-	if (m_pSurface)
-		m_pSurface->AddRef();
-	m_SurfaceID = SurfaceID;
-}
-
-STDMETHODIMP CDXVA2MediaSample::GetPointer(BYTE **ppBuffer)
-{
-	if (ppBuffer)
-		*ppBuffer = nullptr;
-	return E_NOTIMPL;
-}
-
-STDMETHODIMP CDXVA2MediaSample::GetService(REFGUID guidService, REFIID riid, LPVOID *ppv)
-{
-	CheckPointer(ppv, E_POINTER);
-
-	*ppv = nullptr;
-
-	if (guidService != MR_BUFFER_SERVICE)
-		return MF_E_UNSUPPORTED_SERVICE;
-	if (!m_pSurface)
-		return E_NOINTERFACE;
-
-	return m_pSurface->QueryInterface(riid, ppv);
 }

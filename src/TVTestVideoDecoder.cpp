@@ -26,7 +26,9 @@
 #include "TVTestVideoDecoderProp.h"
 #include "TVTestVideoDecoderStat.h"
 #include "PixelFormatConvert.h"
+#include "Mpeg2DecoderDXVA2.h"
 #include "Util.h"
+#include "Common.h"
 #include "MediaTypes.h"
 #include "resource.h"
 
@@ -41,8 +43,7 @@
 #define KEY_Hue               L"Hue"
 #define KEY_Saturation        L"Saturation"
 #define KEY_NumThreads        L"NumThreads"
-
-#define INVALID_TIME _I64_MIN
+#define KEY_EnableDXVA2       L"EnableDXVA2"
 
 
 static bool RegReadDWORD(HKEY hKey, LPCTSTR pszName, DWORD *pValue)
@@ -63,13 +64,24 @@ static bool RegWriteDWORD(HKEY hKey, LPCTSTR pszName, DWORD Value)
 
 CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLocal)
 	: CBaseVideoFilter(L"TVTestVideoDecoder", lpunk, phr, __uuidof(ITVTestVideoDecoder), 1)
+
+	, m_pDecoder(nullptr)
+	, m_AvgTimePerFrame(0)
 	, m_fWaitForKeyFrame(true)
 	, m_fDropFrames(false)
+	, m_fTelecineMode(false)
+	, m_fFilm(false)
+	, m_RecentFrameTypes(0)
+	, m_LastFilmFrame(0)
+	, m_FrameCount(0)
+	, m_RateChange({0, 10000})
 	, m_fLocalInstance(fLocal)
+	, m_Statistics()
 
 	, m_Deinterlacer_Yadif(false)
 	, m_Deinterlacer_YadifBob(true)
 
+	, m_fDXVA2Decode(false)
 	, m_fEnableDeinterlace(true)
 	, m_DeinterlaceMethod(TVTVIDEODEC_DEINTERLACE_BLEND)
 	, m_fAdaptProgressive(true)
@@ -91,11 +103,6 @@ CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLo
 	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_YADIF    ] = &m_Deinterlacer_Yadif;
 	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_YADIF_BOB] = &m_Deinterlacer_YadifBob;
 
-	m_RateChange.StartTime = 0;
-	m_RateChange.Rate = 10000;
-
-	::ZeroMemory(&m_Statistics, sizeof(m_Statistics));
-
 	if (FAILED(*phr)) {
 		return;
 	}
@@ -112,16 +119,16 @@ CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLo
 		LoadOptions();
 	}
 
-	/*
-	if (m_fDXVADeinterlace) {
-		m_fDXVAConnect = true;
+	m_pDecoder = DNew_nothrow CMpeg2Decoder;
+	if (!m_pDecoder) {
+		*phr = E_OUTOFMEMORY;
 	}
-	*/
 }
 
 CTVTestVideoDecoder::~CTVTestVideoDecoder()
 {
 	SafeRelease(m_pFrameCapture);
+	SafeDelete(m_pDecoder);
 }
 
 CUnknown * CALLBACK CTVTestVideoDecoder::CreateInstance(LPUNKNOWN punk, HRESULT *phr)
@@ -149,22 +156,26 @@ STDMETHODIMP CTVTestVideoDecoder::NonDelegatingQueryInterface(REFIID riid, void 
 
 HRESULT CTVTestVideoDecoder::EndOfStream()
 {
+	TRACE(TEXT("CTVTestVideoDecoder::EndOfStream()\n"));
 	CAutoLock Lock(&m_csReceive);
 	return __super::EndOfStream();
 }
 
 HRESULT CTVTestVideoDecoder::BeginFlush()
 {
+	TRACE(TEXT("CTVTestVideoDecoder::BeginFlush()\n"));
 	return __super::BeginFlush();
 }
 
 HRESULT CTVTestVideoDecoder::EndFlush()
 {
+	TRACE(TEXT("CTVTestVideoDecoder::EndFlush()\n"));
 	return __super::EndFlush();
 }
 
 HRESULT CTVTestVideoDecoder::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate)
 {
+	TRACE(TEXT("CTVTestVideoDecoder::NewSegment() %lld %lld %f\n"), tStart, tStop, dRate);
 	CAutoLock Lock(&m_csReceive);
 	m_fDropFrames = false;
 	return __super::NewSegment(tStart, tStop, dRate);
@@ -185,11 +196,26 @@ void CTVTestVideoDecoder::GetOutputFormatList(OutputFormatList *pFormatList) con
 
 void CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 {
+	TRACE(TEXT("CTVTestVideoDecoder::InitDecode()\n"));
+
 	CAutoLock Lock(&m_csReceive);
 
-	m_Decoder.Close();
-	m_Decoder.SetNumThreads(m_NumThreads);
-	m_Decoder.Open();
+	m_pDecoder->Close();
+
+	CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
+	if (pDXVADecoder) {
+		if (!m_fDXVAOutput) {
+			TRACE(TEXT("Fallback to software decoder\n"));
+			delete pDXVADecoder;
+			m_pDecoder = DNew CMpeg2Decoder;
+			m_fDXVAConnect = false;
+		} else {
+			pDXVADecoder->ResetDecoding();
+		}
+	}
+
+	m_pDecoder->SetNumThreads(m_NumThreads);
+	m_pDecoder->Open();
 
 #if 0
 	if (fPutSequenceHeader) {
@@ -208,14 +234,10 @@ void CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 		}
 
 		if (pSequenceHeader && cbSequenceHeader) {
-			m_Decoder.PutBuffer(pSequenceHeader, cbSequenceHeader);
+			m_pDecoder->PutBuffer(pSequenceHeader, cbSequenceHeader);
 		}
 	}
 #endif
-
-	for (int i = 0; i < _countof(m_PictureStatus); i++) {
-		m_PictureStatus[i].rtStart = INVALID_TIME;
-	}
 
 	m_fWaitForKeyFrame = true;
 
@@ -245,7 +267,7 @@ void CTVTestVideoDecoder::SetFrameStatus()
 	const uint32_t OldFlags = m_FrameBuffer.m_Flags;
 	uint32_t NewFlags;
 
-	if (!m_Decoder.GetFrameFlags(&NewFlags))
+	if (!m_pDecoder->GetFrameFlags(&NewFlags))
 		return;
 
 	if (!(NewFlags & FRAME_FLAG_PROGRESSIVE_SEQUENCE)
@@ -366,7 +388,7 @@ DWORD CTVTestVideoDecoder::GetVideoInfoControlFlags() const
 	fmt->VideoTransferFunction = DXVA_VideoTransFunc_22_709;
 #endif
 
-	const mpeg2_info_t *pInfo = m_Decoder.GetMpeg2Info();
+	const mpeg2_info_t *pInfo = m_pDecoder->GetMpeg2Info();
 
 	if (pInfo) {
 		const mpeg2_sequence_t *sequence = pInfo->sequence;
@@ -433,7 +455,7 @@ void CTVTestVideoDecoder::GetOutputSize(VideoDimensions *pDimensions, int *pReal
 {
 	int Width, Height, AspectX, AspectY;
 
-	if (m_Decoder.GetOutputSize(&Width, &Height)) {
+	if (m_pDecoder->GetOutputSize(&Width, &Height)) {
 		if (m_fCrop1088To1080 && Height == 1088) {
 			Height = 1080;
 		}
@@ -441,7 +463,7 @@ void CTVTestVideoDecoder::GetOutputSize(VideoDimensions *pDimensions, int *pReal
 		pDimensions->Height = Height;
 	}
 
-	if (m_Decoder.GetAspectRatio(&AspectX, &AspectY)) {
+	if (m_pDecoder->GetAspectRatio(&AspectX, &AspectY)) {
 		pDimensions->AspectX = AspectX;
 		pDimensions->AspectY = AspectY;
 	}
@@ -449,16 +471,39 @@ void CTVTestVideoDecoder::GetOutputSize(VideoDimensions *pDimensions, int *pReal
 
 bool CTVTestVideoDecoder::IsVideoInterlaced()
 {
-	return !GetEnableDeinterlace() && GetInterlacedFlag();
+	return (!GetEnableDeinterlace() && GetInterlacedFlag()) || m_fDXVAOutput;
 }
 
-HRESULT CTVTestVideoDecoder::OnDXVAConnect(IPin *pPin)
+HRESULT CTVTestVideoDecoder::OnDXVA2Connect(IPin *pPin)
 {
-	m_Deinterlacer_DXVA.Finalize();
-	m_Deinterlacer_DXVA.m_pDeviceManager = m_pD3DDeviceManager;
-	m_Deinterlacer_DXVA.m_pDeviceManager->AddRef();
-	m_Deinterlacer_DXVA.m_hDevice = m_hDXVADevice;
-	m_Deinterlacer_DXVA.Initialize();
+	return S_OK;
+}
+
+HRESULT CTVTestVideoDecoder::OnDXVA2SurfaceCreated(IDirect3DSurface9 **ppSurface, int SurfaceCount)
+{
+	CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
+
+	if (pDXVADecoder) {
+		HRESULT hr = pDXVADecoder->CreateDecoder(this, ppSurface, SurfaceCount);
+		if (FAILED(hr)) {
+			TRACE(TEXT("Fallback to software decoder\n"));
+			delete pDXVADecoder;
+			m_pDecoder = DNew CMpeg2Decoder;
+			m_fDXVAConnect = false;
+		}
+	}
+
+	return S_OK;
+}
+
+HRESULT CTVTestVideoDecoder::OnDXVA2AllocatorDecommit()
+{
+	CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
+
+	if (pDXVADecoder) {
+		pDXVADecoder->CloseDecoder();
+	}
+
 	return S_OK;
 }
 
@@ -483,15 +528,15 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 		rtStart = INVALID_TIME;
 	}
 
-	const mpeg2_info_t *pInfo = m_Decoder.GetMpeg2Info();
+	const mpeg2_info_t *pInfo = m_pDecoder->GetMpeg2Info();
 
 	while (DataLength >= 0) {
-		mpeg2_state_t state = m_Decoder.Parse();
+		mpeg2_state_t state = m_pDecoder->Parse();
 
 		switch (state) {
 		case STATE_BUFFER:
 			if (DataLength > 0) {
-				m_Decoder.PutBuffer(pDataIn, DataLength);
+				m_pDecoder->PutBuffer(pDataIn, DataLength);
 				DataLength = 0;
 			} else {
 				DataLength = -1;
@@ -517,9 +562,9 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 
 		case STATE_PICTURE:
 			{
-				const mpeg2_picture_t *picture = m_Decoder.GetPicture();
+				const mpeg2_picture_t *picture = m_pDecoder->GetPicture();
 
-				m_PictureStatus[m_Decoder.GetPictureIndex(picture)].rtStart = rtStart;
+				m_pDecoder->GetPictureStatus(picture).rtStart = rtStart;
 				rtStart = INVALID_TIME;
 
 				bool fDrop = false;
@@ -544,7 +589,7 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 					}
 				}
 
-				m_Decoder.Skip(pIn->IsPreroll() == S_OK || fDrop);
+				m_pDecoder->Skip(pIn->IsPreroll() == S_OK || fDrop);
 			}
 			break;
 
@@ -553,7 +598,8 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 			{
 				const mpeg2_picture_t *picture = pInfo->display_picture;
 
-				if (picture && !(picture->flags & PIC_FLAG_SKIP) && pInfo->display_fbuf
+				if (picture && !(picture->flags & PIC_FLAG_SKIP)
+						&& (pInfo->display_fbuf || m_fDXVAOutput)
 						&& pInfo->sequence->width == pInfo->sequence->chroma_width * 2
 						&& pInfo->sequence->height == pInfo->sequence->chroma_height * 2) {
 					int Width = pInfo->sequence->picture_width;
@@ -566,9 +612,9 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 						m_FrameBuffer.Allocate(Width, Height);
 					}
 
-					m_Decoder.GetAspectRatio(&m_FrameBuffer.m_AspectX, &m_FrameBuffer.m_AspectY);
+					m_pDecoder->GetAspectRatio(&m_FrameBuffer.m_AspectX, &m_FrameBuffer.m_AspectY);
 
-					m_FrameBuffer.m_rtStart = m_PictureStatus[m_Decoder.GetPictureIndex(picture)].rtStart;
+					m_FrameBuffer.m_rtStart = m_pDecoder->GetPictureStatus(picture).rtStart;
 					if (m_FrameBuffer.m_rtStart < 0) {
 						m_FrameBuffer.m_rtStart = m_FrameBuffer.m_rtStop;
 					}
@@ -586,10 +632,48 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 						m_fWaitForKeyFrame = false;
 					}
 
-					hr = DeliverFrame(&m_FrameBuffer);
-					if (FAILED(hr)) {
-						TRACE(TEXT("DeliverFrame() failed (%x)\n"), hr);
-						return hr;
+					CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
+					if (pDXVADecoder) {
+						if (!m_fDXVAOutput) {
+							return E_UNEXPECTED;
+						}
+						hr = ReconnectOutput(
+							m_FrameBuffer.m_Width, m_FrameBuffer.m_Height,
+							m_FrameBuffer.m_AspectX, m_FrameBuffer.m_AspectY,
+							false, false, m_AvgTimePerFrame, true);
+						if (FAILED(hr)) {
+							TRACE(TEXT("ReconnectOutput() failed (%x)\n"), hr);
+							return hr;
+						}
+						IMediaSample *pSample;
+						hr = pDXVADecoder->DecodeFrame(&pSample);
+						if (hr == DXVA2_E_NEW_VIDEO_DEVICE) {
+							TRACE(TEXT("Device lost\n"));
+							hr = ReconnectOutput(
+								m_FrameBuffer.m_Width, m_FrameBuffer.m_Height,
+								m_FrameBuffer.m_AspectX, m_FrameBuffer.m_AspectY,
+								false, true, m_AvgTimePerFrame, true);
+							return hr;
+						}
+						if (SUCCEEDED(hr) && pSample) {
+							hr = Deliver(pSample, &m_FrameBuffer);
+							pSample->Release();
+							if (FAILED(hr)) {
+								TRACE(TEXT("Deliver() failed (%x)\n"), hr);
+								return hr;
+							}
+						}
+#ifdef _DEBUG
+						else if (FAILED(hr)) {
+							TRACE(TEXT("DecodeFrame() failed (%x)\n"), hr);
+						}
+#endif
+					} else {
+						hr = DeliverFrame(&m_FrameBuffer);
+						if (FAILED(hr)) {
+							TRACE(TEXT("DeliverFrame() failed (%x)\n"), hr);
+							return hr;
+						}
 					}
 				}
 			}
@@ -610,9 +694,8 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 	HRESULT hr;
 	CDeinterlacer *pDeinterlacer;
 
-	if (m_fDXVAOutput
-			|| (m_fDXVADeinterlace
-				&& pFrameBuffer->m_Deinterlace != TVTVIDEODEC_DEINTERLACE_WEAVE)) {
+	if (m_fDXVADeinterlace
+			&& pFrameBuffer->m_Deinterlace != TVTVIDEODEC_DEINTERLACE_WEAVE) {
 		pDeinterlacer = &m_Deinterlacer_DXVA;
 	} else {
 		pDeinterlacer = m_Deinterlacers[pFrameBuffer->m_Deinterlace];
@@ -632,7 +715,7 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 
 	SrcBuffer.CopyAttributesFrom(pFrameBuffer);
 
-	if (!m_Decoder.GetFrame(&SrcBuffer)) {
+	if (!m_pDecoder->GetFrame(&SrcBuffer)) {
 		pOutSample->Release();
 		return S_FALSE;
 	}
@@ -641,6 +724,33 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 
 	hr = SetupOutputFrameBuffer(&DstBuffer, pOutSample, pDeinterlacer);
 	if (FAILED(hr)) {
+		pOutSample->Release();
+		return hr;
+	}
+
+	if (DstBuffer.m_pSurface) {
+		D3DSURFACE_DESC desc;
+		hr = DstBuffer.m_pSurface->GetDesc(&desc);
+		if (SUCCEEDED(hr)) {
+			if (desc.Format != D3DFMT_NV12
+					|| (int)desc.Width < SrcBuffer.m_Width
+					|| (int)desc.Height < SrcBuffer.m_Height) {
+				hr = E_FAIL;
+			} else {
+				D3DLOCKED_RECT rect;
+				hr = DstBuffer.m_pSurface->LockRect(&rect, nullptr, D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
+				if (SUCCEEDED(hr)) {
+					PixelCopyI420ToNV12(
+						SrcBuffer.m_Width, SrcBuffer.m_Height,
+						(uint8_t*)rect.pBits, (uint8_t*)rect.pBits + desc.Height * rect.Pitch, rect.Pitch,
+						SrcBuffer.m_Buffer[0], SrcBuffer.m_Buffer[1], SrcBuffer.m_Buffer[2],
+						SrcBuffer.m_PitchY, SrcBuffer.m_PitchC);
+					DstBuffer.m_pSurface->UnlockRect();
+					hr = Deliver(pOutSample, &DstBuffer);
+				}
+			}
+		}
+		SafeRelease(DstBuffer.m_pSurface);
 		pOutSample->Release();
 		return hr;
 	}
@@ -690,7 +800,6 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 	}
 
 DeliverEnd:
-	SafeRelease(DstBuffer.m_pSurface);
 	pOutSample->Release();
 
 	return hr;
@@ -799,7 +908,33 @@ HRESULT CTVTestVideoDecoder::Deliver(IMediaSample *pOutSample, CFrameBuffer *pFr
 
 	SetTypeSpecificFlags(pOutSample);
 
+	bool fSendSizeChanged = false;
+	int Width, Height;
+	if (m_fAttachMediaType) {
+		AM_MEDIA_TYPE *pmt = CreateMediaType(&m_pOutput->CurrentMediaType());
+
+		if (!pmt) {
+			return E_OUTOFMEMORY;
+		}
+		if (m_fDXVAOutput) {
+			if (IsVideoInfo(pmt) || IsVideoInfo2(pmt)) {
+				::SetRectEmpty(&((VIDEOINFOHEADER*)pmt->pbFormat)->rcSource);
+				const BITMAPINFOHEADER *pbmih = GetBitmapInfoHeader(pmt);
+				Width = pbmih->biWidth;
+				Height = abs(pbmih->biHeight);
+				fSendSizeChanged = true;
+			}
+		}
+		pOutSample->SetMediaType(pmt);
+		DeleteMediaType(pmt);
+		m_fAttachMediaType = false;
+	}
+
 	hr = m_pOutput->Deliver(pOutSample);
+
+	if (fSendSizeChanged) {
+		NotifyEvent(EC_VIDEO_SIZE_CHANGED, MAKELPARAM(Width, Height), 0);
+	}
 
 	return hr;
 }
@@ -896,13 +1031,28 @@ HRESULT CTVTestVideoDecoder::CheckInputType(const CMediaType *mtIn)
 
 HRESULT CTVTestVideoDecoder::CompleteConnect(PIN_DIRECTION direction, IPin *pReceivePin)
 {
+	if (direction == PINDIR_OUTPUT) {
+		delete m_pDecoder;
+		m_fDXVAConnect = m_fDXVA2Decode;
+		if (m_fDXVA2Decode) {
+			m_pDecoder = DNew_nothrow CMpeg2DecoderDXVA2;
+			m_cBuffers = 8;
+		} else {
+			m_pDecoder = DNew_nothrow CMpeg2Decoder;
+			m_cBuffers = 1;
+		}
+		if (!m_pDecoder) {
+			return E_OUTOFMEMORY;
+		}
+	}
+
 	HRESULT hr = __super::CompleteConnect(direction, pReceivePin);
 	if (FAILED(hr)) {
 		return hr;
 	}
 
 	if (direction == PINDIR_OUTPUT) {
-		if (m_fDXVADeinterlace && !m_fDXVAConnect) {
+		if (m_fDXVADeinterlace) {
 			m_Deinterlacer_DXVA.Initialize();
 		}
 	}
@@ -924,7 +1074,7 @@ HRESULT CTVTestVideoDecoder::StartStreaming()
 
 HRESULT CTVTestVideoDecoder::StopStreaming()
 {
-	//m_Decoder.Close();
+	//m_pDecoder->Close();
 
 	return __super::StopStreaming();
 }
@@ -1139,7 +1289,19 @@ STDMETHODIMP_(int) CTVTestVideoDecoder::GetNumThreads()
 {
 	return m_NumThreads;
 }
-		HKEY hKey;
+
+STDMETHODIMP CTVTestVideoDecoder::SetEnableDXVA2(BOOL fEnable)
+{
+	CAutoLock Lock(&m_csProps);
+	TRACE(TEXT("SetEnableDXVA2() %d\n"), fEnable);
+	m_fDXVA2Decode = fEnable != FALSE;
+	return S_OK;
+}
+
+STDMETHODIMP_(BOOL) CTVTestVideoDecoder::GetEnableDXVA2()
+{
+	return m_fDXVA2Decode;
+}
 
 STDMETHODIMP CTVTestVideoDecoder::LoadOptions()
 {
@@ -1175,6 +1337,8 @@ STDMETHODIMP CTVTestVideoDecoder::LoadOptions()
 		SetSaturation((int)Value);
 	if (RegReadDWORD(hKey, KEY_NumThreads, &Value))
 		SetNumThreads((int)Value);
+	if (RegReadDWORD(hKey, KEY_EnableDXVA2, &Value))
+		SetEnableDXVA2(Value != 0);
 
 	::RegCloseKey(hKey);
 
@@ -1208,6 +1372,7 @@ STDMETHODIMP CTVTestVideoDecoder::SaveOptions()
 	RegWriteDWORD(hKey, KEY_Hue, (DWORD)m_Hue);
 	RegWriteDWORD(hKey, KEY_Saturation, (DWORD)m_Saturation);
 	RegWriteDWORD(hKey, KEY_NumThreads, (DWORD)m_NumThreads);
+	RegWriteDWORD(hKey, KEY_EnableDXVA2, m_fDXVA2Decode);
 
 	::RegCloseKey(hKey);
 
@@ -1242,6 +1407,30 @@ STDMETHODIMP CTVTestVideoDecoder::GetStatistics(TVTVIDEODEC_Statistics *pStatist
 
 	if (Mask & TVTVIDEODEC_STAT_BASE_TIME_PER_FRAME) {
 		pStatistics->BaseTimePerFrame = m_AvgTimePerFrame;
+	}
+
+	if (Mask & TVTVIDEODEC_STAT_MODE) {
+		pStatistics->Mode = m_fDXVAOutput ? TVTVIDEODEC_MODE_DXVA2 : 0;
+	}
+
+	if (Mask & TVTVIDEODEC_STAT_DXVA_DEVICE_INFO) {
+		const CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<const CMpeg2DecoderDXVA2 *>(m_pDecoder);
+		if (pDXVADecoder) {
+			const D3DADAPTER_IDENTIFIER9 &AdapterID = pDXVADecoder->GetAdapterIdentifier();
+			::MultiByteToWideChar(CP_ACP, 0, AdapterID.Description, -1,
+				pStatistics->DXVADeviceInfo.Description,
+				_countof(pStatistics->DXVADeviceInfo.Description));
+			pStatistics->DXVADeviceInfo.Product     = HIWORD(AdapterID.DriverVersion.HighPart);
+			pStatistics->DXVADeviceInfo.Version     = LOWORD(AdapterID.DriverVersion.HighPart);
+			pStatistics->DXVADeviceInfo.SubVersion  = HIWORD(AdapterID.DriverVersion.LowPart);
+			pStatistics->DXVADeviceInfo.Build       = LOWORD(AdapterID.DriverVersion.LowPart);
+			pStatistics->DXVADeviceInfo.VendorID    = AdapterID.VendorId;
+			pStatistics->DXVADeviceInfo.DeviceID    = AdapterID.DeviceId;
+			pStatistics->DXVADeviceInfo.SubSystemID = AdapterID.SubSysId;
+			pStatistics->DXVADeviceInfo.Revision    = AdapterID.Revision;
+		} else {
+			::ZeroMemory(&pStatistics->DXVADeviceInfo, sizeof(pStatistics->DXVADeviceInfo));
+		}
 	}
 
 	Mask |= TVTVIDEODEC_STAT_ALL;

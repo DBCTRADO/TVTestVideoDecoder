@@ -16,8 +16,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define TVTVIDEODEC_VERSION_TEXT  "0.2.0"
+#pragma once
 
-#define TVTVIDEODEC_VERSION_MAJOR 0
-#define TVTVIDEODEC_VERSION_MINOR 2
-#define TVTVIDEODEC_VERSION_REV   0
+
+#define INVALID_TIME INT64_MIN

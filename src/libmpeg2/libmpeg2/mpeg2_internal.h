@@ -232,6 +232,11 @@ struct mpeg2_decoder_s {
     /* used for DMV MC */
     int top_field_first;
 
+    int alternate_scan;
+    int repeat_first_field;
+    int chroma_420_type;
+    int progressive_frame;
+
     /* stuff derived from bitstream */
 
     /* pointer to the zigzag scan we're supposed to be using */
@@ -314,6 +319,11 @@ struct mpeg2dec_s {
     //int8_t q_scale_type, scaled[4];
     uint8_t quantizer_matrix[4][64];
     uint8_t new_quantizer_matrix[4][64];
+
+    void (* slice_hook) (mpeg2dec_t * mpeg2dec, int code,
+			 const uint8_t * buffer, int bytes);
+
+    void * client_data;
 
 #ifdef MPEG2_MT
     struct thread_pool_s * thread_pool;

@@ -59,5 +59,7 @@ bool IsMpeg1VideoInfo(const AM_MEDIA_TYPE *pmt);
 bool IsMpeg2VideoInfo(const AM_MEDIA_TYPE *pmt);
 bool GetAvgTimePerFrame(const AM_MEDIA_TYPE *pmt, REFERENCE_TIME *prtAvgTimePerFrame);
 bool GetBitmapInfoHeader(const AM_MEDIA_TYPE *pmt, BITMAPINFOHEADER *pbmih);
+BITMAPINFOHEADER *GetBitmapInfoHeader(AM_MEDIA_TYPE *pmt);
+const BITMAPINFOHEADER *GetBitmapInfoHeader(const AM_MEDIA_TYPE *pmt);
 CLSID GetConnectedFilterCLSID(CBasePin *pPin);
 bool IsMediaTypeInterlaced(const AM_MEDIA_TYPE *pmt);

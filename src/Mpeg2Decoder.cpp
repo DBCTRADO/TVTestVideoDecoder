@@ -45,6 +45,10 @@ bool CMpeg2Decoder::Open()
 	if (!m_pDec)
 		return false;
 
+	for (auto &e: m_PictureStatus) {
+		e.rtStart = INVALID_TIME;
+	}
+
 	return true;
 }
 
@@ -166,6 +170,11 @@ const mpeg2_picture_t *CMpeg2Decoder::GetPicture() const
 	if (!m_pDec)
 		return nullptr;
 	return m_pDec->picture;
+}
+
+CMpeg2Decoder::PictureStatus &CMpeg2Decoder::GetPictureStatus(const mpeg2_picture_t *pPicture)
+{
+	return m_PictureStatus[GetPictureIndex(pPicture)];
 }
 
 int CMpeg2Decoder::GetPictureIndex(const mpeg2_picture_t *pPicture) const

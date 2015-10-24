@@ -194,6 +194,14 @@ int mpeg2_guess_aspect (const mpeg2_sequence_t * sequence,
 			unsigned int * pixel_width,
 			unsigned int * pixel_height);
 
+void mpeg2_set_client_data (mpeg2dec_t * mpeg2dec, void * client_data);
+void * mpeg2_get_client_data (mpeg2dec_t * mpeg2dec);
+
+void mpeg2_slice_hook (mpeg2dec_t * mpeg2dec,
+		       void (* slice_func) (mpeg2dec_t * mpeg2dec, int code,
+					    const uint8_t * buffer,
+					    int bytes));
+
 typedef enum {
     MPEG2_ALLOC_MPEG2DEC = 0,
     MPEG2_ALLOC_CHUNK = 1,

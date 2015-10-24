@@ -78,6 +78,15 @@
     <ClInclude Include="TVTestVideoDecoderStat.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DXVA2Allocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mpeg2DecoderDXVA2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BaseVideoFilter.cpp">
@@ -123,6 +132,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TVTestVideoDecoderStat.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DXVA2Allocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mpeg2DecoderDXVA2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

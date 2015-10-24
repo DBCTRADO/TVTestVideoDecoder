@@ -125,6 +125,32 @@ bool GetBitmapInfoHeader(const AM_MEDIA_TYPE *pmt, BITMAPINFOHEADER *pbmih)
 	return false;
 }
 
+BITMAPINFOHEADER *GetBitmapInfoHeader(AM_MEDIA_TYPE *pmt)
+{
+	if (IsVideoInfo(pmt)) {
+		VIDEOINFOHEADER *pvih = (VIDEOINFOHEADER*)pmt->pbFormat;
+		return &pvih->bmiHeader;
+	} else if (IsVideoInfo2(pmt)) {
+		VIDEOINFOHEADER2 *pvih2 = (VIDEOINFOHEADER2*)pmt->pbFormat;
+		return &pvih2->bmiHeader;
+	}
+
+	return nullptr;
+}
+
+const BITMAPINFOHEADER *GetBitmapInfoHeader(const AM_MEDIA_TYPE *pmt)
+{
+	if (IsVideoInfo(pmt)) {
+		const VIDEOINFOHEADER *pvih = (const VIDEOINFOHEADER*)pmt->pbFormat;
+		return &pvih->bmiHeader;
+	} else if (IsVideoInfo2(pmt)) {
+		const VIDEOINFOHEADER2 *pvih2 = (const VIDEOINFOHEADER2*)pmt->pbFormat;
+		return &pvih2->bmiHeader;
+	}
+
+	return nullptr;
+}
+
 CLSID GetConnectedFilterCLSID(CBasePin *pPin)
 {
 	CLSID clsid = GUID_NULL;

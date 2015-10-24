@@ -97,6 +97,8 @@ HRESULT CTVTestVideoDecoderStat::OnActivate()
 	::SetDlgItemInt(m_Dlg, IDC_STAT_SKIPPED_FRAME_COUNT, m_Stat.SkippedFrameCount, FALSE);
 	UpdatePlaybackRate(m_Stat.PlaybackRate);
 	UpdateBaseFPS(m_Stat.BaseTimePerFrame);
+	UpdateMode(m_Stat.Mode);
+	UpdateDXVADeviceDescription(m_Stat.DXVADeviceInfo.Description);
 
 	::SetDlgItemTextW(m_Dlg, IDC_STAT_VERSION,
 					  TVTVIDEODEC_FILTER_NAME L" ver." LTEXT(TVTVIDEODEC_VERSION_TEXT));
@@ -116,9 +118,8 @@ INT_PTR CTVTestVideoDecoderStat::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 	switch (uMsg) {
 	case WM_TIMER:
 		if (m_pDecoder) {
-			TVTVIDEODEC_Statistics Stat;
+			TVTVIDEODEC_Statistics Stat = {};
 
-			::ZeroMemory(&Stat, sizeof(Stat));
 			Stat.Mask = TVTVIDEODEC_STAT_ALL;
 			m_pDecoder->GetStatistics(&Stat);
 
@@ -139,6 +140,10 @@ INT_PTR CTVTestVideoDecoderStat::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 				UpdatePlaybackRate(Stat.PlaybackRate);
 			if (Stat.BaseTimePerFrame != m_Stat.BaseTimePerFrame)
 				UpdateBaseFPS(Stat.BaseTimePerFrame);
+			if (Stat.Mode != m_Stat.Mode)
+				UpdateMode(Stat.Mode);
+			if (::lstrcmp(Stat.DXVADeviceInfo.Description, m_Stat.DXVADeviceInfo.Description) != 0)
+				UpdateDXVADeviceDescription(m_Stat.DXVADeviceInfo.Description);
 
 			m_Stat = Stat;
 		}
@@ -173,6 +178,17 @@ void CTVTestVideoDecoderStat::UpdateBaseFPS(LONGLONG BaseTimePerFrame)
 
 	::wsprintf(szText, TEXT("%d.%02d"), FPS / 100, abs(FPS % 100));
 	::SetDlgItemText(m_Dlg, IDC_STAT_BASE_FPS, szText);
+}
+
+void CTVTestVideoDecoderStat::UpdateMode(DWORD Mode)
+{
+	::SetDlgItemText(m_Dlg, IDC_STAT_MODE,
+					 (Mode & TVTVIDEODEC_MODE_DXVA2) ? TEXT("DXVA2") : TEXT("Software"));
+}
+
+void CTVTestVideoDecoderStat::UpdateDXVADeviceDescription(LPCWSTR pszDescription)
+{
+	::SetDlgItemText(m_Dlg, IDC_STAT_DXVA_DEVICE_DESCRIPTION, pszDescription);
 }
 
 void CTVTestVideoDecoderStat::MakeDirty()

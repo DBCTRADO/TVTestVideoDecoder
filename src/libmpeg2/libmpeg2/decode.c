@@ -223,6 +223,13 @@ mpeg2_state_t mpeg2_parse (mpeg2dec_t * mpeg2dec)
 	    }
 	    mpeg2dec->bytes_since_tag += copied;
 
+	    if (mpeg2dec->slice_hook) {
+		mpeg2dec->slice_hook (
+		    mpeg2dec,
+		    mpeg2dec->code,
+		    mpeg2dec->chunk_start,
+		    (int)(mpeg2dec->chunk_ptr - mpeg2dec->chunk_start - 4));
+	    } else
 #ifdef MPEG2_MT
 	    {
 		slice_decode_t * slice;
@@ -464,6 +471,23 @@ void mpeg2_tag_picture (mpeg2dec_t * mpeg2dec, uint32_t tag, uint32_t tag2)
     mpeg2dec->bytes_since_tag = 0;
 }
 
+void mpeg2_set_client_data (mpeg2dec_t * mpeg2dec, void * client_data)
+{
+    mpeg2dec->client_data = client_data;
+}
+
+void * mpeg2_get_client_data (mpeg2dec_t * mpeg2dec)
+{
+    return mpeg2dec->client_data;
+}
+
+void mpeg2_slice_hook (mpeg2dec_t * mpeg2dec,
+		       void (* slice_func) (mpeg2dec_t * mpeg2dec, int code,
+					    const uint8_t * buffer, int bytes))
+{
+    mpeg2dec->slice_hook = slice_func;
+}
+
 uint32_t mpeg2_accel (uint32_t accel)
 {
     if (!mpeg2_accels) {
@@ -524,6 +548,8 @@ mpeg2dec_t * mpeg2_init (void)
 					    MPEG2_ALLOC_MPEG2DEC);
     if (mpeg2dec == NULL)
 	return NULL;
+
+    mpeg2dec->slice_hook = NULL;
 
     mpeg2dec->chunk_buffer = (uint8_t *) mpeg2_malloc (BUFFER_SIZE + 4,
 						       MPEG2_ALLOC_CHUNK);

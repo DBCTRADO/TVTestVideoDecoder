@@ -25,9 +25,10 @@
 #include <mfidl.h>
 #include <mferror.h>
 #include <evr.h>
-#include <vector>
 #include "FrameBuffer.h"
 
+
+class CDXVA2Allocator;
 
 class CBaseVideoFilter : public CTransformFilter
 {
@@ -39,6 +40,9 @@ public:
 	virtual ~CBaseVideoFilter();
 
 	virtual HRESULT CheckOutputType(const CMediaType *mtOut);
+
+	int GetAlignedWidth() const;
+	int GetAlignedHeight() const;
 
 // CTransformFilter
 
@@ -93,10 +97,11 @@ protected:
 	VideoDimensions m_OutDimensions;
 
 	IDirect3DDeviceManager9 *m_pD3DDeviceManager;
-	IDirectXVideoDecoderService *m_pDecoderService;
 	HANDLE m_hDXVADevice;
+	CDXVA2Allocator *m_pDXVA2Allocator;
 	bool m_fDXVAConnect;
 	bool m_fDXVAOutput;
+	bool m_fAttachMediaType;
 
 	HRESULT GetDeliveryBuffer(
 		IMediaSample **ppOut, int Width, int Height,
@@ -109,6 +114,8 @@ protected:
 		int Width, int Height, int AspectX = 0, int AspectY = 0,
 		bool fSendSample = true, bool fForce = false,
 		REFERENCE_TIME AvgTimePerFrame = 0, bool fInterlaced = false, int RealWidth = 0, int RealHeight = 0);
+	HRESULT InitAllocator(IMemAllocator **ppAllocator);
+	HRESULT RecommitAllocator();
 	static bool GetDimensions(const AM_MEDIA_TYPE &mt, VideoDimensions *pDimensions);
 
 	virtual void GetOutputFormatList(OutputFormatList *pFormatList) const = 0;
@@ -116,7 +123,9 @@ protected:
 	virtual void GetOutputSize(VideoDimensions *pDimensions, int *pRealWidth, int *pRealHeight) {}
 	virtual bool IsVideoInterlaced() { return false; }
 	virtual DWORD GetVideoInfoControlFlags() const { return 0; }
-	virtual HRESULT OnDXVAConnect(IPin *pPin) { return S_OK; }
+	virtual HRESULT OnDXVA2Connect(IPin *pPin) { return S_OK; }
+	virtual HRESULT OnDXVA2SurfaceCreated(IDirect3DSurface9 **ppSurface, int SurfaceCount) { return S_OK; }
+	virtual HRESULT OnDXVA2AllocatorDecommit() { return S_OK; }
 };
 
 class CBaseVideoInputAllocator : public CMemAllocator
@@ -154,53 +163,11 @@ public:
 // CBasePin
 
 	HRESULT CheckMediaType(const CMediaType *mtOut) override;
+
+// CBaseOutputPin
+
 	HRESULT InitAllocator(IMemAllocator **ppAllocator) override;
 
 private:
 	CBaseVideoFilter *m_pFilter;
-};
-
-class CDXVA2Allocator : public CBaseAllocator
-{
-public:
-	CDXVA2Allocator(CBaseVideoFilter *pFilter, HRESULT *phr);
-	~CDXVA2Allocator();
-
-// CBaseAllocator
-
-	HRESULT Alloc() override;
-	void Free() override;
-
-private:
-	CBaseVideoFilter *m_pFilter;
-	std::vector<IDirect3DSurface9*> m_SurfaceList;
-};
-
-class CDXVA2MediaSample
-	: public CMediaSample
-	, public IMFGetService
-{
-public:
-	CDXVA2MediaSample(CDXVA2Allocator *pAllocator, HRESULT *phr);
-	~CDXVA2MediaSample();
-
-	void SetSurface(DWORD SurfaceID, IDirect3DSurface9 *pSurface);
-
-// IUnknown
-
-	STDMETHODIMP QueryInterface(REFIID riid, void **ppv) override;
-	STDMETHODIMP_(ULONG) AddRef() override;
-	STDMETHODIMP_(ULONG) Release() override;
-
-// IMediaSample
-
-	STDMETHODIMP GetPointer(BYTE **ppBuffer) override;
-
-// IMFGetService
-
-	STDMETHODIMP GetService(REFGUID guidSerivce, REFIID riid, LPVOID *ppv) override;
-
-private:
-	IDirect3DSurface9 *m_pSurface;
-	DWORD m_SurfaceID;
 };

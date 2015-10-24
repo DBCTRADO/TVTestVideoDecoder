@@ -53,4 +53,6 @@ private:
 	void UpdateOutSize(const TVTVIDEODEC_Statistics &Stat);
 	void UpdatePlaybackRate(LONG PlaybackRate);
 	void UpdateBaseFPS(LONGLONG BaseTimePerFrame);
+	void UpdateMode(DWORD Mode);
+	void UpdateDXVADeviceDescription(LPCWSTR pszDescription);
 };

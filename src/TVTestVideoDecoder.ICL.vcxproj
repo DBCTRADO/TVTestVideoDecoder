@@ -205,15 +205,18 @@
     <ClInclude Include="BaseVideoFilter.h" />
     <ClInclude Include="Blend.h" />
     <ClInclude Include="ColorAdjustment.h" />
+    <ClInclude Include="Common.h" />
     <ClInclude Include="Copy.h" />
     <ClInclude Include="Deinterlace.h" />
     <ClInclude Include="Deinterlace_DXVA.h" />
     <ClInclude Include="Deinterlace_Yadif.h" />
+    <ClInclude Include="DXVA2Allocator.h" />
     <ClInclude Include="FrameBuffer.h" />
     <ClInclude Include="ISpecifyPropertyPages2.h" />
     <ClInclude Include="ITVTestVideoDecoder.h" />
     <ClInclude Include="MediaTypes.h" />
     <ClInclude Include="Mpeg2Decoder.h" />
+    <ClInclude Include="Mpeg2DecoderDXVA2.h" />
     <ClInclude Include="PixelFormatConvert.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
@@ -231,8 +234,10 @@
     <ClCompile Include="Deinterlace_DXVA.cpp" />
     <ClCompile Include="Deinterlace_Yadif.cpp" />
     <ClCompile Include="DllMain.cpp" />
+    <ClCompile Include="DXVA2Allocator.cpp" />
     <ClCompile Include="FrameBuffer.cpp" />
     <ClCompile Include="Mpeg2Decoder.cpp" />
+    <ClCompile Include="Mpeg2DecoderDXVA2.cpp" />
     <ClCompile Include="PixelFormatConvert.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

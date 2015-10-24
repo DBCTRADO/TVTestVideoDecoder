@@ -22,17 +22,23 @@
 #include "libmpeg2/vc++/config.h"
 #include "libmpeg2/include/mpeg2.h"
 #include "FrameBuffer.h"
+#include "Common.h"
 
 
 class CMpeg2Decoder
 {
 public:
+	struct PictureStatus
+	{
+		REFERENCE_TIME rtStart = INVALID_TIME;
+	};
+
 	CMpeg2Decoder();
-	~CMpeg2Decoder();
-	bool Open();
-	void Close();
+	virtual ~CMpeg2Decoder();
+	virtual bool Open();
+	virtual void Close();
 	void PutBuffer(const uint8_t *pBuffer, size_t Size);
-	mpeg2_state_t Parse();
+	virtual mpeg2_state_t Parse();
 	void Skip(bool fSkip);
 	bool GetOutputSize(int *pWidth, int *pHeight) const;
 	bool GetAspectRatio(int *pAspectX, int *pAspectY) const;
@@ -40,10 +46,13 @@ public:
 	bool GetFrameFlags(uint32_t *pFlags) const;
 	const mpeg2_info_t *GetMpeg2Info() const;
 	const mpeg2_picture_t *GetPicture() const;
-	int GetPictureIndex(const mpeg2_picture_t *pPicture) const;
+	PictureStatus &GetPictureStatus(const mpeg2_picture_t *pPicture);
 	void SetNumThreads(int NumThreads);
 
 protected:
 	mpeg2dec_t *m_pDec;
 	int m_NumThreads;
+	PictureStatus m_PictureStatus[4];
+
+	int GetPictureIndex(const mpeg2_picture_t *pPicture) const;
 };
