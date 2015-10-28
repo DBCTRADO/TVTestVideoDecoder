@@ -315,6 +315,7 @@ struct mpeg2dec_s {
     int16_t display_offset_x, display_offset_y;
 
     int copy_matrix;
+    int valid_matrix;
     int8_t scaled[4]; /* XXX: MOVED */
     //int8_t q_scale_type, scaled[4];
     uint8_t quantizer_matrix[4][64];

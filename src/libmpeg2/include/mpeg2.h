@@ -58,6 +58,7 @@ typedef struct mpeg2_sequence_s {
     unsigned int frame_period;
 
     uint8_t profile_level_id;
+    uint8_t chroma_format;
     uint8_t colour_primaries;
     uint8_t transfer_characteristics;
     uint8_t matrix_coefficients;

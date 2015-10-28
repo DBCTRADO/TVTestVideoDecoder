@@ -51,6 +51,7 @@ CMpeg2DecoderDXVA2::CMpeg2DecoderDXVA2()
 	, m_ForwardRefSurfaceIndex(-1)
 	, m_DecodeSampleIndex(-1)
 	, m_Samples()
+	, m_RefSamples()
 {
 	::ZeroMemory(&m_AdapterIdentifier, sizeof(m_AdapterIdentifier));
 }
@@ -93,7 +94,6 @@ mpeg2_state_t CMpeg2DecoderDXVA2::Parse()
 	case STATE_PICTURE:
 		m_SliceDataSize = 0;
 		m_SliceCount = 0;
-		m_DecodeSampleIndex = GetPictureIndex(m_pDec->picture);
 		break;
 
 	case STATE_SLICE_1ST:
@@ -143,7 +143,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(
 					::MultiByteToWideChar(CP_ACP, 0, AdapterID.Description, -1, szDescription, _countof(szDescription));
 					::MultiByteToWideChar(CP_ACP, 0, AdapterID.DeviceName, -1, szDeviceName, _countof(szDeviceName));
 					TRACE(TEXT("--- Adapter information ---\n")
-						  TEXT("   Driver   : %s\n")
+						  TEXT("     Driver : %s\n")
 						  TEXT("Description : %s\n")
 						  TEXT("Device name : %s\n")
 						  TEXT("    Product : %08x\n")
@@ -347,7 +347,12 @@ void CMpeg2DecoderDXVA2::ResetDecoding()
 	TRACE(TEXT("CMpeg2DecoderDXVA2::ResetDecoding()\n"));
 
 	for (auto &e: m_Samples) {
-		SafeRelease(e);
+		SafeRelease(e.pSample);
+		e.SurfaceID = -1;
+	}
+	for (auto &e: m_RefSamples) {
+		SafeRelease(e.pSample);
+		e.SurfaceID = -1;
 	}
 
 	m_SliceDataSize = 0;
@@ -362,11 +367,15 @@ void CMpeg2DecoderDXVA2::ResetDecoding()
 
 HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 {
-	*ppSample = nullptr;
+	if (ppSample) {
+		*ppSample = nullptr;
+	}
 
 	if (!m_pVideoDecoder) {
 		return E_UNEXPECTED;
 	}
+
+	m_DecodeSampleIndex = GetFBufIndex(m_pDec->fbuf[0]);
 
 	if (!m_SliceCount || m_DecodeSampleIndex < 0) {
 		return S_FALSE;
@@ -389,26 +398,67 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 		return hr;
 	}
 
-	CDXVA2MediaSample *pSample = m_Samples[m_DecodeSampleIndex];
+	switch (m_pDec->picture->flags & PIC_MASK_CODING_TYPE) {
+	case PIC_FLAG_CODING_TYPE_I:
+		m_PrevRefSurfaceIndex = -1;
+		m_ForwardRefSurfaceIndex = -1;
+		//TRACE(TEXT("I [%d]\n"), m_CurSurfaceIndex);
+		break;
+	case PIC_FLAG_CODING_TYPE_P:
+		m_PrevRefSurfaceIndex = GetFBufSampleID(m_pDec->fbuf[1]);
+		m_ForwardRefSurfaceIndex = -1;
+		//TRACE(TEXT("P [%d]->%d\n"), m_CurSurfaceIndex, m_PrevRefSurfaceIndex);
+		break;
+	case PIC_FLAG_CODING_TYPE_B:
+		m_PrevRefSurfaceIndex = GetFBufSampleID(m_pDec->fbuf[1]);
+		m_ForwardRefSurfaceIndex = GetFBufSampleID(m_pDec->fbuf[2]);
+		//TRACE(TEXT("B %d->[%d]->%d\n"), m_PrevRefSurfaceIndex, m_CurSurfaceIndex, m_ForwardRefSurfaceIndex);
+		if (m_ForwardRefSurfaceIndex < 0)
+			return S_FALSE;
+		break;
+	}
+
+	CDXVA2MediaSample *pSample = m_Samples[m_DecodeSampleIndex].pSample;
 
 	if (!pSample) {
 		IMediaSample *pMediaSample;
 		IDXVA2MediaSample *pDXVA2Sample;
 
-		hr = m_pFilter->GetDeliveryBuffer(&pMediaSample);
-		if (FAILED(hr)) {
-			return hr;
+		for (;;) {
+			hr = m_pFilter->GetDeliveryBuffer(&pMediaSample);
+			if (FAILED(hr)) {
+				return hr;
+			}
+			hr = pMediaSample->QueryInterface(IID_PPV_ARGS(&pDXVA2Sample));
+			pMediaSample->Release();
+			if (FAILED(hr)) {
+				return hr;
+			}
+			pSample = static_cast<CDXVA2MediaSample*>(pDXVA2Sample);
+			if (pSample->GetSurfaceID() == m_RefSamples[0].SurfaceID) {
+				m_RefSamples[0].pSample = pSample;
+			} else if (pSample->GetSurfaceID() == m_RefSamples[1].SurfaceID) {
+				m_RefSamples[1].pSample = pSample;
+			} else {
+				break;
+			}
 		}
-		hr = pMediaSample->QueryInterface(IID_PPV_ARGS(&pDXVA2Sample));
-		pMediaSample->Release();
-		if (FAILED(hr)) {
-			return hr;
-		}
-		pSample = static_cast<CDXVA2MediaSample*>(pDXVA2Sample);
-		m_Samples[m_DecodeSampleIndex] = pSample;
+		m_Samples[m_DecodeSampleIndex].pSample = pSample;
+		m_Samples[m_DecodeSampleIndex].SurfaceID = pSample->GetSurfaceID();
 	}
 
 	m_CurSurfaceIndex = pSample->GetSurfaceID();
+
+#ifdef _DEBUG
+	if ((m_pDec->picture->flags & PIC_MASK_CODING_TYPE) == PIC_FLAG_CODING_TYPE_P) {
+		_ASSERT(m_PrevRefSurfaceIndex>=0 && m_CurSurfaceIndex != m_PrevRefSurfaceIndex);
+	} else if ((m_pDec->picture->flags & PIC_MASK_CODING_TYPE) == PIC_FLAG_CODING_TYPE_B) {
+		_ASSERT(m_PrevRefSurfaceIndex>=0
+			&& m_CurSurfaceIndex != m_PrevRefSurfaceIndex
+			&& m_ForwardRefSurfaceIndex>=0
+			&& m_CurSurfaceIndex != m_ForwardRefSurfaceIndex);
+	}
+#endif
 
 	IDirect3DSurface9 *pSurface;
 	IMFGetService *pMFGetService;
@@ -456,18 +506,21 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 			hr = m_pVideoDecoder->Execute(&ExecParams);
 			if (SUCCEEDED(hr)) {
 				if (m_fWaitForDisplayKeyFrame) {
-					if ((m_pDec->info.display_picture->flags & PIC_MASK_CODING_TYPE) == PIC_FLAG_CODING_TYPE_I) {
+					if (m_pDec->info.display_picture
+							&& (m_pDec->info.display_picture->flags & PIC_MASK_CODING_TYPE) == PIC_FLAG_CODING_TYPE_I) {
 						m_fWaitForDisplayKeyFrame = false;
 					}
 				}
 				if (ppSample) {
 					hr = S_FALSE;
 					if (!m_fWaitForDisplayKeyFrame) {
-						const int DisplaySampleIndex = GetPictureIndex(m_pDec->info.display_picture);
-						*ppSample = m_Samples[DisplaySampleIndex];
-						if (*ppSample) {
-							m_Samples[DisplaySampleIndex] = nullptr;
-							hr = S_OK;
+						const int DisplaySampleIndex = GetFBufIndex(m_pDec->info.display_fbuf);
+						if (DisplaySampleIndex >= 0) {
+							*ppSample = m_Samples[DisplaySampleIndex].pSample;
+							if (*ppSample) {
+								m_Samples[DisplaySampleIndex].pSample = nullptr;
+								hr = S_OK;
+							}
 						}
 					}
 				}
@@ -479,8 +532,10 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 
 	if ((m_pDec->picture->flags & PIC_MASK_CODING_TYPE) != PIC_FLAG_CODING_TYPE_B
 			&& ppSample) {
-		m_ForwardRefSurfaceIndex = m_PrevRefSurfaceIndex;
-		m_PrevRefSurfaceIndex = m_CurSurfaceIndex;
+		SafeRelease(m_RefSamples[1].pSample);
+		m_RefSamples[1] = m_RefSamples[0];
+		m_RefSamples[0].pSample = nullptr;
+		m_RefSamples[0].SurfaceID = m_CurSurfaceIndex;
 	}
 
 	pSurface->Release();
@@ -568,7 +623,7 @@ void CMpeg2DecoderDXVA2::GetPictureParams(DXVA_PictureParameters *pParams)
 	pParams->bSecondField = IsField && decoder->second_field;
 	pParams->bPicIntra = PicType == PIC_FLAG_CODING_TYPE_I;
 	pParams->bPicBackwardPrediction = PicType == PIC_FLAG_CODING_TYPE_B;
-	pParams->bChromaFormat = decoder->chroma_format;
+	pParams->bChromaFormat = m_pDec->sequence.chroma_format;
 	pParams->bPicScanFixed = 1;
 	pParams->bPicScanMethod = decoder->alternate_scan;
 	pParams->wBitstreamFcodes =
@@ -593,12 +648,14 @@ void CMpeg2DecoderDXVA2::GetPictureParams(DXVA_PictureParameters *pParams)
 void CMpeg2DecoderDXVA2::GetQmatrixData(DXVA_QmatrixData *pQmatrix)
 {
 	for (int i = 0; i < 4; i++) {
-		pQmatrix->bNewQmatrix[i] = 1;
+		pQmatrix->bNewQmatrix[i] = !!(m_pDec->valid_matrix & (1 << i));
 	}
+
+	_ASSERT(pQmatrix->bNewQmatrix[0] && pQmatrix->bNewQmatrix[1]);
 
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 64; j++) {
-			pQmatrix->Qmatrix[i][j] = m_pDec->quantizer_matrix[i][j];
+			pQmatrix->Qmatrix[i][j] = m_pDec->quantizer_matrix[i][mpeg2_scan_norm[j]];
 		}
 	}
 }
@@ -667,4 +724,22 @@ void CMpeg2DecoderDXVA2::Slice(mpeg2dec_t *mpeg2dec, int code, const uint8_t *bu
 void CMpeg2DecoderDXVA2::SliceHook(mpeg2dec_t *mpeg2dec, int code, const uint8_t *buffer, int bytes)
 {
 	static_cast<CMpeg2DecoderDXVA2 *>(mpeg2dec->client_data)->Slice(mpeg2dec, code, buffer, bytes);
+}
+
+int CMpeg2DecoderDXVA2::GetFBufIndex(const mpeg2_fbuf_t *fbuf) const
+{
+	for (int i = 0; i < 3; i++) {
+		if (fbuf == &m_pDec->fbuf_alloc[i].fbuf)
+			return i;
+	}
+	return -1;
+}
+
+int CMpeg2DecoderDXVA2::GetFBufSampleID(const mpeg2_fbuf_t *fbuf) const
+{
+	int Index = GetFBufIndex(fbuf);
+
+	if (Index >= 0)
+		return m_Samples[Index].SurfaceID;
+	return -1;
 }

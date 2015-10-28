@@ -48,6 +48,12 @@ public:
 	const D3DADAPTER_IDENTIFIER9 &GetAdapterIdentifier() const { return m_AdapterIdentifier; }
 
 private:
+	struct SampleInfo
+	{
+		CDXVA2MediaSample *pSample = nullptr;
+		int SurfaceID = -1;
+	};
+
 	static const int MAX_SLICE = 175;
 
 	CTVTestVideoDecoder *m_pFilter;
@@ -68,11 +74,14 @@ private:
 	int m_PrevRefSurfaceIndex;
 	int m_ForwardRefSurfaceIndex;
 	int m_DecodeSampleIndex;
-	CDXVA2MediaSample *m_Samples[4];
+	SampleInfo m_Samples[3];
+	SampleInfo m_RefSamples[2];
 
 	HRESULT CommitBuffers();
 	void GetPictureParams(DXVA_PictureParameters *pParams);
 	void GetQmatrixData(DXVA_QmatrixData *pQmatrix);
 	void Slice(mpeg2dec_t *mpeg2dec, int code, const uint8_t *buffer, int bytes);
 	static void SliceHook(mpeg2dec_t *mpeg2dec, int code, const uint8_t *buffer, int bytes);
+	int GetFBufIndex(const mpeg2_fbuf_t *fbuf) const;
+	int GetFBufSampleID(const mpeg2_fbuf_t *fbuf) const;
 };

@@ -187,6 +187,7 @@ int mpeg2_header_sequence (mpeg2dec_t * mpeg2dec)
 	memset (mpeg2dec->new_quantizer_matrix[1], 16, 64);
 
     sequence->profile_level_id = 0x80;
+    sequence->chroma_format = 1;
     sequence->colour_primaries = 0;
     sequence->transfer_characteristics = 0;
     sequence->matrix_coefficients = 0;
@@ -225,12 +226,13 @@ static int sequence_ext (mpeg2dec_t * mpeg2dec)
     sequence->flags = flags;
     sequence->chroma_width = sequence->width;
     sequence->chroma_height = sequence->height;
-    switch (buffer[1] & 6) {
+    sequence->chroma_format = (buffer[1] >> 1) & 3;
+    switch (sequence->chroma_format) {
     case 0:	/* invalid */
 	return 1;
-    case 2:	/* 4:2:0 */
+    case 1:	/* 4:2:0 */
 	sequence->chroma_height >>= 1;
-    case 4:	/* 4:2:2 */
+    case 2:	/* 4:2:2 */
 	sequence->chroma_width >>= 1;
     }
 
@@ -434,6 +436,9 @@ static void finalize_matrix (mpeg2dec_t * mpeg2dec)
 	} else if (mpeg2dec->copy_matrix & (5 << i))
 	    decoder->chroma_quantizer[i] = decoder->quantizer_prescale[i];
     }
+
+    if (mpeg2dec->copy_matrix)
+	mpeg2dec->valid_matrix = mpeg2dec->copy_matrix;
 }
 
 static mpeg2_state_t invalid_end_action (mpeg2dec_t * mpeg2dec)
