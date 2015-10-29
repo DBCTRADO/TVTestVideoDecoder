@@ -50,14 +50,16 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>Intel C++ Compiler XE 15.0</PlatformToolset>
     <CharacterSet>NotSet</CharacterSet>
-    <BasePlatformToolset>v120_xp</BasePlatformToolset>
+    <BasePlatformToolset Condition="'$(VisualStudioVersion)' == '12.0'">v120_xp</BasePlatformToolset>
+    <BasePlatformToolset Condition="'$(VisualStudioVersion)' == '14.0'">v140_xp</BasePlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>Intel C++ Compiler XE 15.0</PlatformToolset>
     <CharacterSet>NotSet</CharacterSet>
-    <BasePlatformToolset>v120_xp</BasePlatformToolset>
+    <BasePlatformToolset Condition="'$(VisualStudioVersion)' == '12.0'">v120_xp</BasePlatformToolset>
+    <BasePlatformToolset Condition="'$(VisualStudioVersion)' == '14.0'">v140_xp</BasePlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -65,7 +67,8 @@
     <PlatformToolset>Intel C++ Compiler XE 15.0</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>NotSet</CharacterSet>
-    <BasePlatformToolset>v120_xp</BasePlatformToolset>
+    <BasePlatformToolset Condition="'$(VisualStudioVersion)' == '12.0'">v120_xp</BasePlatformToolset>
+    <BasePlatformToolset Condition="'$(VisualStudioVersion)' == '14.0'">v140_xp</BasePlatformToolset>
     <InterproceduralOptimization>true</InterproceduralOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -74,7 +77,8 @@
     <PlatformToolset>Intel C++ Compiler XE 15.0</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>NotSet</CharacterSet>
-    <BasePlatformToolset>v120_xp</BasePlatformToolset>
+    <BasePlatformToolset Condition="'$(VisualStudioVersion)' == '12.0'">v120_xp</BasePlatformToolset>
+    <BasePlatformToolset Condition="'$(VisualStudioVersion)' == '14.0'">v140_xp</BasePlatformToolset>
     <InterproceduralOptimization>true</InterproceduralOptimization>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
