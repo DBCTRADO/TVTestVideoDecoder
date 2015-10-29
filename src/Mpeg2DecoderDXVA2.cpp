@@ -654,8 +654,10 @@ void CMpeg2DecoderDXVA2::GetQmatrixData(DXVA_QmatrixData *pQmatrix)
 	_ASSERT(pQmatrix->bNewQmatrix[0] && pQmatrix->bNewQmatrix[1]);
 
 	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 64; j++) {
-			pQmatrix->Qmatrix[i][j] = m_pDec->quantizer_matrix[i][mpeg2_scan_norm[j]];
+		if (pQmatrix->bNewQmatrix[i]) {
+			for (int j = 0; j < 64; j++) {
+				pQmatrix->Qmatrix[i][j] = m_pDec->quantizer_matrix[i][mpeg2_scan_norm[j]];
+			}
 		}
 	}
 }
