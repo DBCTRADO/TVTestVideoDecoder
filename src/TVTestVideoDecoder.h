@@ -160,7 +160,6 @@ private:
 	void InitDecode(bool fPutSequenceHeader);
 	void InitDeinterlacers();
 
-	void GetOutputSize(VideoDimensions *pDimensions, int *pRealWidth, int *pRealHeight) override;
 	HRESULT Transform(IMediaSample *pIn) override;
 	bool IsVideoInterlaced() override;
 	void GetOutputFormatList(OutputFormatList *pFormatList) const override;

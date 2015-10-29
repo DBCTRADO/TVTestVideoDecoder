@@ -451,24 +451,6 @@ DWORD CTVTestVideoDecoder::GetVideoInfoControlFlags() const
 	return Flags;
 }
 
-void CTVTestVideoDecoder::GetOutputSize(VideoDimensions *pDimensions, int *pRealWidth, int *pRealHeight)
-{
-	int Width, Height, AspectX, AspectY;
-
-	if (m_pDecoder->GetOutputSize(&Width, &Height)) {
-		if (m_fCrop1088To1080 && Height == 1088) {
-			Height = 1080;
-		}
-		pDimensions->Width = Width;
-		pDimensions->Height = Height;
-	}
-
-	if (m_pDecoder->GetAspectRatio(&AspectX, &AspectY)) {
-		pDimensions->AspectX = AspectX;
-		pDimensions->AspectY = AspectY;
-	}
-}
-
 bool CTVTestVideoDecoder::IsVideoInterlaced()
 {
 	return (!GetEnableDeinterlace() && GetInterlacedFlag()) || m_fDXVAOutput;

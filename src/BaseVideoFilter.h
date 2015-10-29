@@ -95,6 +95,7 @@ protected:
 	VideoDimensions m_Dimensions;
 	VideoDimensions m_InDimensions;
 	VideoDimensions m_OutDimensions;
+	VideoDimensions m_MediaDimensions;
 
 	IDirect3DDeviceManager9 *m_pD3DDeviceManager;
 	HANDLE m_hDXVADevice;
@@ -113,14 +114,14 @@ protected:
 	HRESULT ReconnectOutput(
 		int Width, int Height, int AspectX = 0, int AspectY = 0,
 		bool fSendSample = true, bool fForce = false,
-		REFERENCE_TIME AvgTimePerFrame = 0, bool fInterlaced = false, int RealWidth = 0, int RealHeight = 0);
+		REFERENCE_TIME AvgTimePerFrame = 0, bool fInterlaced = false);
 	HRESULT InitAllocator(IMemAllocator **ppAllocator);
 	HRESULT RecommitAllocator();
+	void GetOutputSize(VideoDimensions *pDimensions) const;
 	static bool GetDimensions(const AM_MEDIA_TYPE &mt, VideoDimensions *pDimensions);
 
 	virtual void GetOutputFormatList(OutputFormatList *pFormatList) const = 0;
 	virtual HRESULT Transform(IMediaSample *pIn) = 0;
-	virtual void GetOutputSize(VideoDimensions *pDimensions, int *pRealWidth, int *pRealHeight) {}
 	virtual bool IsVideoInterlaced() { return false; }
 	virtual DWORD GetVideoInfoControlFlags() const { return 0; }
 	virtual HRESULT OnDXVA2Connect(IPin *pPin) { return S_OK; }
