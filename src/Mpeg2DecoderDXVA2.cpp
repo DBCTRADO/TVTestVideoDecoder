@@ -66,6 +66,8 @@ bool CMpeg2DecoderDXVA2::Open()
 {
 	Close();
 
+	m_NumThreads = 1;
+
 	if (!CMpeg2Decoder::Open())
 		return false;
 
