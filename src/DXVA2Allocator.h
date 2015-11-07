@@ -36,6 +36,7 @@ public:
 	CDXVA2Allocator(CBaseVideoFilter *pFilter, HRESULT *phr);
 	~CDXVA2Allocator();
 
+	BOOL IsCommitted() const { return m_bCommitted; }
 	BOOL IsDecommitInProgress() const { return m_bDecommitInProgress; }
 
 // CBaseAllocator

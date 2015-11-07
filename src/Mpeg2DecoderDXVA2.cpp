@@ -40,6 +40,7 @@ CMpeg2DecoderDXVA2::CMpeg2DecoderDXVA2()
 	, m_pDeviceManager(nullptr)
 	, m_pDecoderService(nullptr)
 	, m_pVideoDecoder(nullptr)
+	, m_fDeviceLost(false)
 	, m_pSliceBuffer(nullptr)
 	, m_SliceBufferSize(0)
 	, m_SliceDataSize(0)
@@ -59,7 +60,7 @@ CMpeg2DecoderDXVA2::CMpeg2DecoderDXVA2()
 CMpeg2DecoderDXVA2::~CMpeg2DecoderDXVA2()
 {
 	Close();
-	CloseDecoder();
+	CloseDecoderService();
 }
 
 bool CMpeg2DecoderDXVA2::Open()
@@ -108,17 +109,16 @@ mpeg2_state_t CMpeg2DecoderDXVA2::Parse()
 	return State;
 }
 
-HRESULT CMpeg2DecoderDXVA2::CreateDecoder(
-	CTVTestVideoDecoder *pFilter, IDirect3DSurface9 **ppSurface, int SurfaceCount)
+HRESULT CMpeg2DecoderDXVA2::CreateDecoderService(CTVTestVideoDecoder *pFilter)
 {
-	TRACE(TEXT("CMpeg2DecoderDXVA2::CreateDecoder()\n"));
+	TRACE(TEXT("CMpeg2DecoderDXVA2::CreateDecoderService()\n"));
 
-	if (!pFilter || !ppSurface)
+	if (!pFilter)
 		return E_POINTER;
-	if (!pFilter->m_pD3DDeviceManager)
+	if (!pFilter->m_pD3DDeviceManager || !pFilter->m_hDXVADevice)
 		return E_UNEXPECTED;
 
-	CloseDecoder();
+	CloseDecoderService();
 
 	m_pFilter = pFilter;
 	m_pDeviceManager = pFilter->m_pD3DDeviceManager;
@@ -181,17 +181,43 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(
 	hr = m_pDeviceManager->GetVideoService(m_pFilter->m_hDXVADevice, IID_PPV_ARGS(&pDecoderService));
 	if (FAILED(hr)) {
 		TRACE(TEXT("GetVideoService() failed (%x)\n"), hr);
-		CloseDecoder();
+		CloseDecoderService();
 		return hr;
 	}
 	m_pDecoderService = pDecoderService;
+
+	return S_OK;
+}
+
+void CMpeg2DecoderDXVA2::CloseDecoderService()
+{
+	TRACE(TEXT("CMpeg2DecoderDXVA2::CloseDecoderService()\n"));
+
+	CloseDecoder();
+
+	SafeRelease(m_pDecoderService);
+	SafeRelease(m_pDeviceManager);
+	m_pFilter = nullptr;
+}
+
+HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int SurfaceCount)
+{
+	TRACE(TEXT("CMpeg2DecoderDXVA2::CreateDecoder()\n"));
+
+	if (!ppSurface)
+		return E_POINTER;
+	if (!m_pFilter || !m_pDecoderService)
+		return E_UNEXPECTED;
+
+	CloseDecoder();
+
+	HRESULT hr;
 
 	UINT Count;
 	GUID *pGuids;
 	hr = m_pDecoderService->GetDecoderDeviceGuids(&Count, &pGuids);
 	if (FAILED(hr)) {
 		TRACE(TEXT("GetDecoderDeviceGuids() failed (%x)\n"), hr);
-		CloseDecoder();
 		return hr;
 	}
 
@@ -209,7 +235,6 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(
 	::CoTaskMemFree(pGuids);
 	if (!fFound) {
 		TRACE(TEXT("Decoder not found\n"));
-		CloseDecoder();
 		return hr;
 	}
 
@@ -217,7 +242,6 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(
 	hr = m_pDecoderService->GetDecoderRenderTargets(guidDecoder, &Count, &pFormats);
 	if (FAILED(hr)) {
 		TRACE(TEXT("GetDecoderRenderTargets() failed (%x)\n"), hr);
-		CloseDecoder();
 		return hr;
 	}
 
@@ -231,7 +255,6 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(
 	::CoTaskMemFree(pFormats);
 	if (!fFound) {
 		TRACE(TEXT("Format not available\n"));
-		CloseDecoder();
 		return hr;
 	}
 
@@ -253,7 +276,6 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(
 		guidDecoder, &VideoDesc, nullptr, &Count, &pConfigs);
 	if (FAILED(hr)) {
 		TRACE(TEXT("GetDecoderConfigurations() failed (%x)\n"), hr);
-		CloseDecoder();
 		return hr;
 	}
 
@@ -266,7 +288,6 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(
 	}
 	if (SelConfig < 0) {
 		::CoTaskMemFree(pConfigs);
-		CloseDecoder();
 		return E_FAIL;
 	}
 
@@ -281,7 +302,6 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(
 	::CoTaskMemFree(pConfigs);
 	if (FAILED(hr)) {
 		TRACE(TEXT("CreateVideoDecoder() failed (%x)\n"), hr);
-		CloseDecoder();
 		return hr;
 	}
 	m_pVideoDecoder = pVideoDecoder;
@@ -296,9 +316,7 @@ void CMpeg2DecoderDXVA2::CloseDecoder()
 	ResetDecoding();
 
 	SafeRelease(m_pVideoDecoder);
-	SafeRelease(m_pDecoderService);
-	SafeRelease(m_pDeviceManager);
-	m_pFilter = nullptr;
+	m_fDeviceLost = false;
 }
 
 HRESULT CMpeg2DecoderDXVA2::RecreateDecoder()
@@ -395,7 +413,8 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 	hr = m_pDeviceManager->TestDevice(m_pFilter->m_hDXVADevice);
 	if (FAILED(hr)) {
 		if (hr == DXVA2_E_NEW_VIDEO_DEVICE) {
-			CloseDecoder();
+			TRACE(TEXT("Device lost\n"));
+			m_fDeviceLost = true;
 		}
 		return hr;
 	}

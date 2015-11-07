@@ -42,7 +42,7 @@ HRESULT CDXVA2Allocator::Alloc()
 
 	TRACE(TEXT("CDXVA2Allocator::Alloc()\n"));
 
-	if (!m_pFilter->m_pD3DDeviceManager)
+	if (!m_pFilter->m_pD3DDeviceManager || !m_pFilter->m_hDXVADevice)
 		return E_UNEXPECTED;
 
 	HRESULT hr;

@@ -118,11 +118,6 @@ CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLo
 	if (!m_fLocalInstance) {
 		LoadOptions();
 	}
-
-	m_pDecoder = DNew_nothrow CMpeg2Decoder;
-	if (!m_pDecoder) {
-		*phr = E_OUTOFMEMORY;
-	}
 }
 
 CTVTestVideoDecoder::~CTVTestVideoDecoder()
@@ -194,23 +189,31 @@ void CTVTestVideoDecoder::GetOutputFormatList(OutputFormatList *pFormatList) con
 	pFormatList->FormatCount = _countof(Formats);
 }
 
-void CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
+HRESULT CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 {
 	TRACE(TEXT("CTVTestVideoDecoder::InitDecode()\n"));
 
 	CAutoLock Lock(&m_csReceive);
 
-	m_pDecoder->Close();
+	if (m_pDecoder) {
+		m_pDecoder->Close();
+	}
 
 	CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
 	if (pDXVADecoder) {
 		if (!m_fDXVAOutput) {
 			TRACE(TEXT("Fallback to software decoder\n"));
-			delete pDXVADecoder;
-			m_pDecoder = DNew CMpeg2Decoder;
+			SafeDelete(m_pDecoder);
 			m_fDXVAConnect = false;
 		} else {
 			pDXVADecoder->ResetDecoding();
+		}
+	}
+
+	if (!m_pDecoder) {
+		m_pDecoder = DNew_nothrow CMpeg2Decoder;
+		if (!m_pDecoder) {
+			return E_OUTOFMEMORY;
 		}
 	}
 
@@ -253,6 +256,8 @@ void CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 	m_FrameBuffer.m_Deinterlace = TVTVIDEODEC_DEINTERLACE_WEAVE;
 
 	InitDeinterlacers();
+
+	return S_OK;
 }
 
 void CTVTestVideoDecoder::InitDeinterlacers()
@@ -456,6 +461,21 @@ bool CTVTestVideoDecoder::IsVideoInterlaced()
 	return (!GetEnableDeinterlace() && GetInterlacedFlag()) || m_fDXVAOutput;
 }
 
+HRESULT CTVTestVideoDecoder::OnDXVA2DeviceHandleOpened()
+{
+	CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
+
+	if (pDXVADecoder) {
+		HRESULT hr = pDXVADecoder->CreateDecoderService(this);
+		if (FAILED(hr)) {
+			SafeDelete(m_pDecoder);
+			m_fDXVAConnect = false;
+		}
+	}
+
+	return S_OK;
+}
+
 HRESULT CTVTestVideoDecoder::OnDXVA2Connect(IPin *pPin)
 {
 	return S_OK;
@@ -466,11 +486,9 @@ HRESULT CTVTestVideoDecoder::OnDXVA2SurfaceCreated(IDirect3DSurface9 **ppSurface
 	CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
 
 	if (pDXVADecoder) {
-		HRESULT hr = pDXVADecoder->CreateDecoder(this, ppSurface, SurfaceCount);
+		HRESULT hr = pDXVADecoder->CreateDecoder(ppSurface, SurfaceCount);
 		if (FAILED(hr)) {
-			TRACE(TEXT("Fallback to software decoder\n"));
-			delete pDXVADecoder;
-			m_pDecoder = DNew CMpeg2Decoder;
+			SafeDelete(m_pDecoder);
 			m_fDXVAConnect = false;
 		}
 	}
@@ -493,8 +511,11 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 {
 	HRESULT hr;
 
-	if (pIn->IsDiscontinuity() == S_OK) {
-		InitDecode(false);
+	if (!m_pDecoder || pIn->IsDiscontinuity() == S_OK) {
+		hr = InitDecode(false);
+		if (FAILED(hr)) {
+			return hr;
+		}
 	}
 
 	long DataLength = pIn->GetActualDataLength();
@@ -616,9 +637,13 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 
 					CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
 					if (pDXVADecoder) {
+						if (pDXVADecoder->IsDeviceLost()) {
+							break;
+						}
 						if (!m_fDXVAOutput) {
 							return E_UNEXPECTED;
 						}
+
 						hr = ReconnectOutput(
 							m_FrameBuffer.m_Width, m_FrameBuffer.m_Height,
 							m_FrameBuffer.m_AspectX, m_FrameBuffer.m_AspectY,
@@ -627,15 +652,13 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 							TRACE(TEXT("ReconnectOutput() failed (%x)\n"), hr);
 							return hr;
 						}
+
 						IMediaSample *pSample;
 						hr = pDXVADecoder->DecodeFrame(&pSample);
 						if (hr == DXVA2_E_NEW_VIDEO_DEVICE) {
-							TRACE(TEXT("Device lost\n"));
-							hr = ReconnectOutput(
-								m_FrameBuffer.m_Width, m_FrameBuffer.m_Height,
-								m_FrameBuffer.m_AspectX, m_FrameBuffer.m_AspectY,
-								false, true, m_AvgTimePerFrame, true);
-							return hr;
+							pDXVADecoder->CloseDecoderService();
+							CloseDXVA2DeviceManager();
+							break;
 						}
 						if (SUCCEEDED(hr) && pSample) {
 							hr = Deliver(pSample, &m_FrameBuffer);
@@ -1011,8 +1034,25 @@ HRESULT CTVTestVideoDecoder::CheckInputType(const CMediaType *mtIn)
 	return VFW_E_TYPE_NOT_ACCEPTED;
 }
 
+HRESULT CTVTestVideoDecoder::BreakConnect(PIN_DIRECTION dir)
+{
+	TRACE(TEXT("BreakConnect() : %s\n"),
+		  dir == PINDIR_INPUT  ? TEXT("input") :
+		  dir == PINDIR_OUTPUT ? TEXT("output") : TEXT("?"));
+
+	if (dir == PINDIR_INPUT) {
+		SafeDelete(m_pDecoder);
+	}
+
+	return __super::BreakConnect(dir);
+}
+
 HRESULT CTVTestVideoDecoder::CompleteConnect(PIN_DIRECTION direction, IPin *pReceivePin)
 {
+	TRACE(TEXT("CompleteConnect() : %s\n"),
+		  direction == PINDIR_INPUT  ? TEXT("input") :
+		  direction == PINDIR_OUTPUT ? TEXT("output") : TEXT("?"));
+
 	if (direction == PINDIR_OUTPUT) {
 		delete m_pDecoder;
 		m_fDXVAConnect = m_fDXVA2Decode;
@@ -1044,18 +1084,17 @@ HRESULT CTVTestVideoDecoder::CompleteConnect(PIN_DIRECTION direction, IPin *pRec
 
 HRESULT CTVTestVideoDecoder::StartStreaming()
 {
-	HRESULT hr = __super::StartStreaming();
-	if (FAILED(hr)) {
-		return hr;
-	}
+	TRACE(TEXT("StartStreaming()\n"));
 
 	InitDecode(true);
 
-	return S_OK;
+	return __super::StartStreaming();
 }
 
 HRESULT CTVTestVideoDecoder::StopStreaming()
 {
+	TRACE(TEXT("StopStreaming()\n"));
+
 	//m_pDecoder->Close();
 
 	return __super::StopStreaming();

@@ -60,6 +60,7 @@ public:
 	HRESULT NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) override;
 
 	HRESULT CheckInputType(const CMediaType *mtIn) override;
+	HRESULT BreakConnect(PIN_DIRECTION dir) override;
 	HRESULT CompleteConnect(PIN_DIRECTION direction, IPin *pReceivePin) override;
 
 	HRESULT StartStreaming() override;
@@ -157,13 +158,14 @@ private:
 	HRESULT SetupOutputFrameBuffer(CFrameBuffer *pFrameBuffer, IMediaSample *pSample, CDeinterlacer *pDeinterlacer);
 	void SetFrameStatus();
 	void SetTypeSpecificFlags(IMediaSample *pSample);
-	void InitDecode(bool fPutSequenceHeader);
+	HRESULT InitDecode(bool fPutSequenceHeader);
 	void InitDeinterlacers();
 
 	HRESULT Transform(IMediaSample *pIn) override;
 	bool IsVideoInterlaced() override;
 	void GetOutputFormatList(OutputFormatList *pFormatList) const override;
 	DWORD GetVideoInfoControlFlags() const override;
+	HRESULT OnDXVA2DeviceHandleOpened() override;
 	HRESULT OnDXVA2Connect(IPin *pPin) override;
 	HRESULT OnDXVA2SurfaceCreated(IDirect3DSurface9 **ppSurface, int SurfaceCount) override;
 	HRESULT OnDXVA2AllocatorDecommit() override;

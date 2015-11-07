@@ -53,6 +53,7 @@ public:
 	HRESULT DecideBufferSize(IMemAllocator *pAllocator, ALLOCATOR_PROPERTIES *pProperties) override;
 	HRESULT GetMediaType(int iPosition, CMediaType *pMediaType) override;
 	HRESULT SetMediaType(PIN_DIRECTION dir, const CMediaType *pmt) override;
+	HRESULT BreakConnect(PIN_DIRECTION dir) override;
 	HRESULT CompleteConnect(PIN_DIRECTION direction, IPin *pReceivePin) override;
 	HRESULT Receive(IMediaSample *pIn) override;
 
@@ -117,6 +118,9 @@ protected:
 		REFERENCE_TIME AvgTimePerFrame = 0, bool fInterlaced = false);
 	HRESULT InitAllocator(IMemAllocator **ppAllocator);
 	HRESULT RecommitAllocator();
+	void CloseDXVA2DeviceManager();
+	void CloseDXVA2DeviceHandle();
+	HRESULT ConfigureDXVA2(IPin *pPin);
 	void GetOutputSize(VideoDimensions *pDimensions) const;
 	static bool GetDimensions(const AM_MEDIA_TYPE &mt, VideoDimensions *pDimensions);
 
@@ -124,6 +128,7 @@ protected:
 	virtual HRESULT Transform(IMediaSample *pIn) = 0;
 	virtual bool IsVideoInterlaced() { return false; }
 	virtual DWORD GetVideoInfoControlFlags() const { return 0; }
+	virtual HRESULT OnDXVA2DeviceHandleOpened() { return S_OK; }
 	virtual HRESULT OnDXVA2Connect(IPin *pPin) { return S_OK; }
 	virtual HRESULT OnDXVA2SurfaceCreated(IDirect3DSurface9 **ppSurface, int SurfaceCount) { return S_OK; }
 	virtual HRESULT OnDXVA2AllocatorDecommit() { return S_OK; }

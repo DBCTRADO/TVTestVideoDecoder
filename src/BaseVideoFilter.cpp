@@ -65,11 +65,7 @@ CBaseVideoFilter::CBaseVideoFilter(PCWSTR pName, LPUNKNOWN lpunk, HRESULT *phr, 
 CBaseVideoFilter::~CBaseVideoFilter()
 {
 	SafeRelease(m_pDXVA2Allocator);
-	if (m_hDXVADevice != nullptr) {
-		m_pD3DDeviceManager->CloseDeviceHandle(m_hDXVADevice);
-		m_hDXVADevice = nullptr;
-	}
-	SafeRelease(m_pD3DDeviceManager);
+	CloseDXVA2DeviceManager();
 }
 
 int CBaseVideoFilter::GetPinCount()
@@ -227,6 +223,13 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 		}
 	}
 
+	if (!fReconnect && m_fDXVAOutput) {
+		const BITMAPINFOHEADER *pbmih = GetBitmapInfoHeader(&mt);
+		if (pbmih && pbmih->biCompression != FOURCC_dxva) {
+			fReconnect = true;
+		}
+	}
+
 	if (!fReconnect) {
 		return S_FALSE;
 	}
@@ -284,6 +287,10 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 	pbmih->biHeight = m_Dimensions.Height;
 	pbmih->biSizeImage = DIBSIZE(*pbmih);
 
+	if (m_fDXVAOutput) {
+		pbmih->biCompression = FOURCC_dxva;
+	}
+
 	HRESULT hr;
 
 	hr = m_pOutput->GetConnected()->QueryAccept(&mt);
@@ -293,8 +300,7 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 	}
 #endif
 
-	if (m_fDXVAOutput) {
-		RecommitAllocator();
+	if (m_fDXVAConnect) {
 		hr = m_pOutput->SetMediaType(&mt);
 		m_fAttachMediaType = true;
 	} else {
@@ -357,6 +363,8 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 
 HRESULT CBaseVideoFilter::InitAllocator(IMemAllocator **ppAllocator)
 {
+	TRACE(TEXT("CBaseVideoFilter::InitAllocator()\n"));
+
 	if (m_fDXVAOutput) {
 		TRACE(TEXT("Create DXVA2 Allocator\n"));
 		SafeRelease(m_pDXVA2Allocator);
@@ -374,7 +382,7 @@ HRESULT CBaseVideoFilter::InitAllocator(IMemAllocator **ppAllocator)
 		return m_pDXVA2Allocator->QueryInterface(IID_PPV_ARGS(ppAllocator));
 	}
 
-	return S_OK;
+	return E_NOTIMPL;
 }
 
 HRESULT CBaseVideoFilter::RecommitAllocator()
@@ -389,7 +397,105 @@ HRESULT CBaseVideoFilter::RecommitAllocator()
 			m_pOutput->GetConnected()->BeginFlush();
 			m_pOutput->GetConnected()->EndFlush();
 		}
-		hr = m_pDXVA2Allocator->Commit();
+		if (m_pD3DDeviceManager && m_hDXVADevice) {
+			hr = m_pDXVA2Allocator->Commit();
+		}
+	}
+
+	return hr;
+}
+
+void CBaseVideoFilter::CloseDXVA2DeviceManager()
+{
+	CloseDXVA2DeviceHandle();
+	SafeRelease(m_pD3DDeviceManager);
+}
+
+void CBaseVideoFilter::CloseDXVA2DeviceHandle()
+{
+	if (m_hDXVADevice != nullptr) {
+		TRACE(TEXT("Close DXVA2 device handle\n"));
+		_ASSERT(m_pD3DDeviceManager != nullptr);
+		m_pD3DDeviceManager->CloseDeviceHandle(m_hDXVADevice);
+		m_hDXVADevice = nullptr;
+	}
+}
+
+HRESULT CBaseVideoFilter::ConfigureDXVA2(IPin *pPin)
+{
+	HRESULT hr;
+	IMFGetService *pGetService;
+
+	hr = pPin->QueryInterface(IID_PPV_ARGS(&pGetService));
+	if (FAILED(hr)) {
+		TRACE(TEXT("Acquiring IMFGetService failed (%x)\n"), hr);
+		return hr;
+	}
+
+	IDirect3DDeviceManager9 *pDeviceManager;
+	hr = pGetService->GetService(MR_VIDEO_ACCELERATION_SERVICE, IID_PPV_ARGS(&pDeviceManager));
+	if (SUCCEEDED(hr)) {
+		HANDLE hDevice;
+		m_pD3DDeviceManager = pDeviceManager;
+
+		hr = m_pD3DDeviceManager->OpenDeviceHandle(&hDevice);
+		if (SUCCEEDED(hr)) {
+			m_hDXVADevice = hDevice;
+
+			hr = OnDXVA2DeviceHandleOpened();
+			if (SUCCEEDED(hr)) {
+				IDirectXVideoMemoryConfiguration *pVMemConfig;
+				hr = pGetService->GetService(
+					MR_VIDEO_ACCELERATION_SERVICE, IID_PPV_ARGS(&pVMemConfig));
+				if (SUCCEEDED(hr)) {
+					for (DWORD i = 0; ; i++) {
+						DXVA2_SurfaceType SurfaceType;
+
+						hr = pVMemConfig->GetAvailableSurfaceTypeByIndex(i, &SurfaceType);
+						if (FAILED(hr))
+							break;
+						if (SurfaceType == DXVA2_SurfaceType_DecoderRenderTarget) {
+							hr = pVMemConfig->SetSurfaceType(DXVA2_SurfaceType_DecoderRenderTarget);
+#ifdef _DEBUG
+							if (FAILED(hr)) {
+								TRACE(TEXT("IDirectXVideoMemoryConfiguration::SetSurfaceType() failed (%x)\n"), hr);
+							}
+#endif
+							break;
+						}
+					}
+
+					pVMemConfig->Release();
+				}
+#ifdef _DEBUG
+				else {
+					TRACE(TEXT("Acquiring IDirectXVideoMemoryConfiguration failed (%x)\n"), hr);
+				}
+#endif
+			}
+		}
+#ifdef _DEBUG
+		else {
+			TRACE(TEXT("OpenDeviceHandle() failed (%x)\n"), hr);
+		}
+#endif
+
+		pGetService->Release();
+	}
+#ifdef _DEBUG
+	else {
+		TRACE(TEXT("Acquiring IDirect3DDeviceManager9 failed (%x)\n"), hr);
+	}
+#endif
+
+	if (SUCCEEDED(hr)) {
+		hr = OnDXVA2Connect(pPin);
+	}
+
+	if (SUCCEEDED(hr)) {
+		m_fDXVAOutput = true;
+	} else {
+		CloseDXVA2DeviceManager();
 	}
 
 	return hr;
@@ -568,6 +674,8 @@ HRESULT CBaseVideoFilter::CheckTransform(const CMediaType *mtIn, const CMediaTyp
 
 HRESULT CBaseVideoFilter::DecideBufferSize(IMemAllocator *pAllocator, ALLOCATOR_PROPERTIES *pProperties)
 {
+	TRACE(TEXT("DecideBufferSize()\n"));
+
 	if (!m_pInput->IsConnected()) {
 		return E_UNEXPECTED;
 	}
@@ -595,6 +703,8 @@ HRESULT CBaseVideoFilter::DecideBufferSize(IMemAllocator *pAllocator, ALLOCATOR_
 
 HRESULT CBaseVideoFilter::GetMediaType(int iPosition, CMediaType *pmt)
 {
+	TRACE(TEXT("GetMediaType() : %d\n"), iPosition);
+
 	if (!m_pInput->IsConnected()) {
 		return E_UNEXPECTED;
 	}
@@ -619,7 +729,7 @@ HRESULT CBaseVideoFilter::GetMediaType(int iPosition, CMediaType *pmt)
 	pmt->subtype = *pFormatInfo->subtype;
 
 	VideoDimensions Dim = m_InDimensions;
-	GetOutputSize(&Dim);
+	//GetOutputSize(&Dim);
 
 	BITMAPINFOHEADER *pbmih;
 
@@ -689,7 +799,7 @@ HRESULT CBaseVideoFilter::SetMediaType(PIN_DIRECTION dir, const CMediaType *pmt)
 	if (dir == PINDIR_INPUT) {
 		GetDimensions(*pmt, &m_Dimensions);
 		m_InDimensions = m_Dimensions;
-		GetOutputSize(&m_Dimensions);
+		//GetOutputSize(&m_Dimensions);
 		TRACE(TEXT("SetMediaType() Input %d x %d (%d:%d)\n"),
 			  m_Dimensions.Width, m_Dimensions.Height, m_Dimensions.AspectX, m_Dimensions.AspectY);
 	} else if (dir == PINDIR_OUTPUT) {
@@ -705,74 +815,26 @@ HRESULT CBaseVideoFilter::SetMediaType(PIN_DIRECTION dir, const CMediaType *pmt)
 	return __super::SetMediaType(dir, pmt);
 }
 
+HRESULT CBaseVideoFilter::BreakConnect(PIN_DIRECTION dir)
+{
+	if (dir == PINDIR_OUTPUT) {
+		m_OutDimensions = m_InDimensions;
+	}
+
+	return __super::BreakConnect(dir);
+}
+
 HRESULT CBaseVideoFilter::CompleteConnect(PIN_DIRECTION direction, IPin *pReceivePin)
 {
 	if (direction != PINDIR_OUTPUT) {
 		return S_OK;
 	}
 
-	if (m_hDXVADevice != nullptr) {
-		m_pD3DDeviceManager->CloseDeviceHandle(m_hDXVADevice);
-		m_hDXVADevice = nullptr;
-	}
-	SafeRelease(m_pD3DDeviceManager);
+	CloseDXVA2DeviceManager();
 	m_fDXVAOutput = false;
 
 	if (m_fDXVAConnect) {
-		HRESULT hr;
-		IMFGetService *pGetService;
-
-		hr = pReceivePin->QueryInterface(IID_PPV_ARGS(&pGetService));
-		if (SUCCEEDED(hr)) {
-			IDirect3DDeviceManager9 *pDeviceManager;
-			hr = pGetService->GetService(MR_VIDEO_ACCELERATION_SERVICE, IID_PPV_ARGS(&pDeviceManager));
-			if (SUCCEEDED(hr)) {
-				HANDLE hDevice;
-				m_pD3DDeviceManager = pDeviceManager;
-
-				hr = m_pD3DDeviceManager->OpenDeviceHandle(&hDevice);
-				if (SUCCEEDED(hr)) {
-					m_hDXVADevice = hDevice;
-
-					IDirectXVideoMemoryConfiguration *pVMemConfig;
-					hr = pGetService->GetService(
-						MR_VIDEO_ACCELERATION_SERVICE, IID_PPV_ARGS(&pVMemConfig));
-					if (SUCCEEDED(hr)) {
-						for (DWORD i = 0; ; i++) {
-							DXVA2_SurfaceType SurfaceType;
-
-							hr = pVMemConfig->GetAvailableSurfaceTypeByIndex(i, &SurfaceType);
-							if (FAILED(hr))
-								break;
-							if (SurfaceType == DXVA2_SurfaceType_DecoderRenderTarget) {
-								hr = pVMemConfig->SetSurfaceType(DXVA2_SurfaceType_DecoderRenderTarget);
-								TRACE(TEXT("IDirectXVideoMemoryConfiguration::SetSurfaceType() %s (%x)\n"),
-									  SUCCEEDED(hr) ? TEXT("succeeded") : TEXT("failed"), hr);
-								break;
-							}
-						}
-
-						pVMemConfig->Release();
-					}
-				}
-
-				pGetService->Release();
-			}
-		}
-
-		if (SUCCEEDED(hr)) {
-			hr = OnDXVA2Connect(pReceivePin);
-		}
-
-		if (SUCCEEDED(hr)) {
-			m_fDXVAOutput = true;
-		} else {
-			if (m_hDXVADevice != nullptr) {
-				m_pD3DDeviceManager->CloseDeviceHandle(m_hDXVADevice);
-				m_hDXVADevice = nullptr;
-			}
-			SafeRelease(m_pD3DDeviceManager);
-		}
+		ConfigureDXVA2(pReceivePin);
 	}
 
 	return S_OK;
@@ -950,9 +1012,13 @@ HRESULT CBaseVideoOutputPin::InitAllocator(IMemAllocator **ppAllocator)
 {
 	CheckPointer(ppAllocator, E_POINTER);
 
-	if (m_pFilter->m_fDXVAOutput) {
-		return m_pFilter->InitAllocator(ppAllocator);
+	HRESULT hr;
+
+	hr = m_pFilter->InitAllocator(ppAllocator);
+
+	if (hr == E_NOTIMPL) {
+		hr = __super::InitAllocator(ppAllocator);
 	}
 
-	return __super::InitAllocator(ppAllocator);
+	return hr;
 }

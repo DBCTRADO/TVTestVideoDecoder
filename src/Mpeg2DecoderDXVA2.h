@@ -37,14 +37,15 @@ public:
 	bool Open() override;
 	void Close() override;
 	mpeg2_state_t Parse() override;
-	HRESULT CreateDecoder(
-		CTVTestVideoDecoder *pFilter,
-		IDirect3DSurface9 **ppSurface, int SurfaceCount);
+	HRESULT CreateDecoderService(CTVTestVideoDecoder *pFilter);
+	void CloseDecoderService();
+	HRESULT CreateDecoder(IDirect3DSurface9 **ppSurface, int SurfaceCount);
 	void CloseDecoder();
 	bool IsDecoderCreated() const { return m_pVideoDecoder != nullptr; }
 	HRESULT RecreateDecoder();
 	void ResetDecoding();
 	HRESULT DecodeFrame(IMediaSample **ppSample);
+	bool IsDeviceLost() const { return m_fDeviceLost; }
 	const D3DADAPTER_IDENTIFIER9 &GetAdapterIdentifier() const { return m_AdapterIdentifier; }
 
 private:
@@ -60,6 +61,7 @@ private:
 	IDirect3DDeviceManager9 *m_pDeviceManager;
 	IDirectXVideoDecoderService *m_pDecoderService;
 	IDirectXVideoDecoder *m_pVideoDecoder;
+	bool m_fDeviceLost;
 	DXVA_PictureParameters m_PictureParams;
 	DXVA_SliceInfo m_SliceInfo[MAX_SLICE];
 	DXVA_QmatrixData m_Qmatrix;
