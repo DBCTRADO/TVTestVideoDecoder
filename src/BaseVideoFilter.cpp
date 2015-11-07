@@ -243,17 +243,17 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 	*/
 	BOOL fOverlayMixer = (clsid == CLSID_OverlayMixer);
 
-	TRACE(TEXT("CBaseVideoFilter::ReconnectOutput()\n"));
-	TRACE(TEXT("  Size : %dx%d%c => %dx%d%c\n"),
-		  m_OutDimensions.Width, m_OutDimensions.Height,
-		  IsMediaTypeInterlaced(&mt) ? TEXT('i') : TEXT('p'),
-		  m_Dimensions.Width, m_Dimensions.Height,
-		  fInterlaced ? TEXT('i') : TEXT('p'));
-	TRACE(TEXT("    AR : %d:%d => %d:%d\n"),
-		  m_OutDimensions.AspectX, m_OutDimensions.AspectY,
-		  m_Dimensions.AspectX, m_Dimensions.AspectY);
-	TRACE(TEXT("  RT/F : %lld => %lld\n"),
-		  OrigAvgTimePerFrame, AvgTimePerFrame);
+	DBG_TRACE(TEXT("CBaseVideoFilter::ReconnectOutput()"));
+	DBG_TRACE(TEXT("  Size : %dx%d%c => %dx%d%c"),
+			  m_OutDimensions.Width, m_OutDimensions.Height,
+			  IsMediaTypeInterlaced(&mt) ? TEXT('i') : TEXT('p'),
+			  m_Dimensions.Width, m_Dimensions.Height,
+			  fInterlaced ? TEXT('i') : TEXT('p'));
+	DBG_TRACE(TEXT("    AR : %d:%d => %d:%d"),
+			  m_OutDimensions.AspectX, m_OutDimensions.AspectY,
+			  m_Dimensions.AspectX, m_Dimensions.AspectY);
+	DBG_TRACE(TEXT("  RT/F : %lld => %lld"),
+			  OrigAvgTimePerFrame, AvgTimePerFrame);
 
 	VIDEOINFOHEADER *pvih = (VIDEOINFOHEADER*)mt.Format();
 	BITMAPINFOHEADER *pbmih;
@@ -296,7 +296,7 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 	hr = m_pOutput->GetConnected()->QueryAccept(&mt);
 #ifdef _DEBUG
 	if (FAILED(hr)) {
-		TRACE(TEXT("	QueryAccept() failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("	QueryAccept() failed (%x)"), hr);
 	}
 #endif
 
@@ -335,7 +335,7 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 					}
 				}
 			} else if (hr == VFW_E_BUFFERS_OUTSTANDING && RetryTimeout >= 0) {
-				TRACE(TEXT("	VFW_E_BUFFERS_OUTSTANDING\n"));
+				DBG_TRACE(TEXT("	VFW_E_BUFFERS_OUTSTANDING"));
 				if (RetryTimeout > 0) {
 					::Sleep(10);
 				} else {
@@ -345,7 +345,7 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 				RetryTimeout -= 10;
 				continue;
 			} else {
-				TRACE(TEXT("	ReceiveConnection() failed (%x)\n"), hr);
+				DBG_ERROR(TEXT("	ReceiveConnection() failed (%x)"), hr);
 			}
 
 			break;
@@ -363,10 +363,10 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 
 HRESULT CBaseVideoFilter::InitAllocator(IMemAllocator **ppAllocator)
 {
-	TRACE(TEXT("CBaseVideoFilter::InitAllocator()\n"));
+	DBG_TRACE(TEXT("CBaseVideoFilter::InitAllocator()"));
 
 	if (m_fDXVAOutput) {
-		TRACE(TEXT("Create DXVA2 Allocator\n"));
+		DBG_TRACE(TEXT("Create DXVA2 Allocator"));
 		SafeRelease(m_pDXVA2Allocator);
 		HRESULT hr = S_OK;
 		m_pDXVA2Allocator = DNew_nothrow CDXVA2Allocator(this, &hr);
@@ -390,7 +390,7 @@ HRESULT CBaseVideoFilter::RecommitAllocator()
 	HRESULT hr = S_OK;
 
 	if (m_pDXVA2Allocator) {
-		TRACE(TEXT("Recommit DXVA2 Allocator\n"));
+		DBG_TRACE(TEXT("Recommit DXVA2 Allocator"));
 		OnDXVA2AllocatorDecommit();
 		m_pDXVA2Allocator->Decommit();
 		if (m_pDXVA2Allocator->IsDecommitInProgress()) {
@@ -414,7 +414,7 @@ void CBaseVideoFilter::CloseDXVA2DeviceManager()
 void CBaseVideoFilter::CloseDXVA2DeviceHandle()
 {
 	if (m_hDXVADevice != nullptr) {
-		TRACE(TEXT("Close DXVA2 device handle\n"));
+		DBG_TRACE(TEXT("Close DXVA2 device handle"));
 		_ASSERT(m_pD3DDeviceManager != nullptr);
 		m_pD3DDeviceManager->CloseDeviceHandle(m_hDXVADevice);
 		m_hDXVADevice = nullptr;
@@ -428,7 +428,7 @@ HRESULT CBaseVideoFilter::ConfigureDXVA2(IPin *pPin)
 
 	hr = pPin->QueryInterface(IID_PPV_ARGS(&pGetService));
 	if (FAILED(hr)) {
-		TRACE(TEXT("Acquiring IMFGetService failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("Acquiring IMFGetService failed (%x)"), hr);
 		return hr;
 	}
 
@@ -458,7 +458,7 @@ HRESULT CBaseVideoFilter::ConfigureDXVA2(IPin *pPin)
 							hr = pVMemConfig->SetSurfaceType(DXVA2_SurfaceType_DecoderRenderTarget);
 #ifdef _DEBUG
 							if (FAILED(hr)) {
-								TRACE(TEXT("IDirectXVideoMemoryConfiguration::SetSurfaceType() failed (%x)\n"), hr);
+								DBG_ERROR(TEXT("IDirectXVideoMemoryConfiguration::SetSurfaceType() failed (%x)"), hr);
 							}
 #endif
 							break;
@@ -469,14 +469,14 @@ HRESULT CBaseVideoFilter::ConfigureDXVA2(IPin *pPin)
 				}
 #ifdef _DEBUG
 				else {
-					TRACE(TEXT("Acquiring IDirectXVideoMemoryConfiguration failed (%x)\n"), hr);
+					DBG_ERROR(TEXT("Acquiring IDirectXVideoMemoryConfiguration failed (%x)"), hr);
 				}
 #endif
 			}
 		}
 #ifdef _DEBUG
 		else {
-			TRACE(TEXT("OpenDeviceHandle() failed (%x)\n"), hr);
+			DBG_ERROR(TEXT("OpenDeviceHandle() failed (%x)"), hr);
 		}
 #endif
 
@@ -484,7 +484,7 @@ HRESULT CBaseVideoFilter::ConfigureDXVA2(IPin *pPin)
 	}
 #ifdef _DEBUG
 	else {
-		TRACE(TEXT("Acquiring IDirect3DDeviceManager9 failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("Acquiring IDirect3DDeviceManager9 failed (%x)"), hr);
 	}
 #endif
 
@@ -674,7 +674,7 @@ HRESULT CBaseVideoFilter::CheckTransform(const CMediaType *mtIn, const CMediaTyp
 
 HRESULT CBaseVideoFilter::DecideBufferSize(IMemAllocator *pAllocator, ALLOCATOR_PROPERTIES *pProperties)
 {
-	TRACE(TEXT("DecideBufferSize()\n"));
+	DBG_TRACE(TEXT("DecideBufferSize()"));
 
 	if (!m_pInput->IsConnected()) {
 		return E_UNEXPECTED;
@@ -703,7 +703,7 @@ HRESULT CBaseVideoFilter::DecideBufferSize(IMemAllocator *pAllocator, ALLOCATOR_
 
 HRESULT CBaseVideoFilter::GetMediaType(int iPosition, CMediaType *pmt)
 {
-	TRACE(TEXT("GetMediaType() : %d\n"), iPosition);
+	DBG_TRACE(TEXT("GetMediaType() : %d"), iPosition);
 
 	if (!m_pInput->IsConnected()) {
 		return E_UNEXPECTED;
@@ -800,13 +800,13 @@ HRESULT CBaseVideoFilter::SetMediaType(PIN_DIRECTION dir, const CMediaType *pmt)
 		GetDimensions(*pmt, &m_Dimensions);
 		m_InDimensions = m_Dimensions;
 		//GetOutputSize(&m_Dimensions);
-		TRACE(TEXT("SetMediaType() Input %d x %d (%d:%d)\n"),
-			  m_Dimensions.Width, m_Dimensions.Height, m_Dimensions.AspectX, m_Dimensions.AspectY);
+		DBG_TRACE(TEXT("SetMediaType() : Input %d x %d (%d:%d)"),
+				  m_Dimensions.Width, m_Dimensions.Height, m_Dimensions.AspectX, m_Dimensions.AspectY);
 	} else if (dir == PINDIR_OUTPUT) {
 		VideoDimensions Dim;
 		GetDimensions(*pmt, &Dim);
-		TRACE(TEXT("SetMediaType() Output %d x %d (%d:%d)\n"),
-			  Dim.Width, Dim.Height, Dim.AspectX, Dim.AspectY);
+		DBG_TRACE(TEXT("SetMediaType() : Output %d x %d (%d:%d)"),
+				  Dim.Width, Dim.Height, Dim.AspectX, Dim.AspectY);
 		if (m_Dimensions == Dim) {
 			m_OutDimensions = Dim;
 		}

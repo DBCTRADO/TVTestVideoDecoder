@@ -97,10 +97,17 @@
 #endif
 
 #ifdef _DEBUG
-#define TRACE ::DebugTrace
-void DebugTrace(LPCTSTR pszFormat, ...);
+#ifndef NO_BASECLASSES_DBG
+#define DBG_TRACE(...) DbgLog((LOG_TRACE, 5, __VA_ARGS__))
+#define DBG_ERROR(...) DbgLog((LOG_ERROR, 5, __VA_ARGS__))
 #else
-#define TRACE __noop
+#define DBG_TRACE ::DebugTrace
+#define DBG_ERROR ::DebugTrace
+void DebugTrace(LPCTSTR pszFormat, ...);
+#endif
+#else
+#define DBG_TRACE __noop
+#define DBG_ERROR __noop
 #endif
 
 #define restrict __restrict

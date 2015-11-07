@@ -40,7 +40,7 @@ HRESULT CDXVA2Allocator::Alloc()
 {
 	CAutoLock Lock(this);
 
-	TRACE(TEXT("CDXVA2Allocator::Alloc()\n"));
+	DBG_TRACE(TEXT("CDXVA2Allocator::Alloc()"));
 
 	if (!m_pFilter->m_pD3DDeviceManager || !m_pFilter->m_hDXVADevice)
 		return E_UNEXPECTED;
@@ -51,7 +51,7 @@ HRESULT CDXVA2Allocator::Alloc()
 	hr = m_pFilter->m_pD3DDeviceManager->GetVideoService(
 		m_pFilter->m_hDXVADevice, IID_PPV_ARGS(&pDecoderService));
 	if (FAILED(hr)) {
-		TRACE(TEXT("IDirect3DDeviceManager9::GetVideoService() failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("IDirect3DDeviceManager9::GetVideoService() failed (%x)"), hr);
 		return hr;
 	}
 
@@ -70,7 +70,7 @@ HRESULT CDXVA2Allocator::Alloc()
 		m_SurfaceList.resize(m_lCount);
 
 		const int Width = m_pFilter->GetAlignedWidth(), Height = m_pFilter->GetAlignedHeight();
-		TRACE(TEXT("Create DXVA2 surfaces : %d x [%d x %d]\n"), m_lCount, Width, Height);
+		DBG_TRACE(TEXT("Create DXVA2 surfaces : %d x [%d x %d]"), m_lCount, Width, Height);
 
 		hr = pDecoderService->CreateSurface(
 			Width,
@@ -83,7 +83,7 @@ HRESULT CDXVA2Allocator::Alloc()
 			&m_SurfaceList[0],
 			nullptr);
 		if (FAILED(hr)) {
-			TRACE(TEXT("IDirectXVideoDecoderService::CreateSurface() failed (%x)\n"), hr);
+			DBG_ERROR(TEXT("IDirectXVideoDecoderService::CreateSurface() failed (%x)"), hr);
 			m_SurfaceList.clear();
 		} else {
 			IDirect3DDevice9 *pD3DDevice;
@@ -138,7 +138,7 @@ void CDXVA2Allocator::Free()
 {
 	CAutoLock Lock(this);
 
-	TRACE(TEXT("CDXVA2Allocator::Free()\n"));
+	DBG_TRACE(TEXT("CDXVA2Allocator::Free()"));
 
 	IMediaSample *pSample;
 	while ((pSample = m_lFree.RemoveHead()) != nullptr) {

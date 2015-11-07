@@ -94,6 +94,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 #ifdef _DEBUG
 	if (dwReason == DLL_PROCESS_ATTACH) {
 		_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
+		DbgSetModuleLevel(LOG_TRACE, DWORD_MAX);
+		DbgSetModuleLevel(LOG_ERROR, DWORD_MAX);
 	}
 #endif
 

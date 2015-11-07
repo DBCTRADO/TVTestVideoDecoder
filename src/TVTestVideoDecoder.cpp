@@ -151,26 +151,26 @@ STDMETHODIMP CTVTestVideoDecoder::NonDelegatingQueryInterface(REFIID riid, void 
 
 HRESULT CTVTestVideoDecoder::EndOfStream()
 {
-	TRACE(TEXT("CTVTestVideoDecoder::EndOfStream()\n"));
+	DBG_TRACE(TEXT("EndOfStream()"));
 	CAutoLock Lock(&m_csReceive);
 	return __super::EndOfStream();
 }
 
 HRESULT CTVTestVideoDecoder::BeginFlush()
 {
-	TRACE(TEXT("CTVTestVideoDecoder::BeginFlush()\n"));
+	DBG_TRACE(TEXT("BeginFlush()"));
 	return __super::BeginFlush();
 }
 
 HRESULT CTVTestVideoDecoder::EndFlush()
 {
-	TRACE(TEXT("CTVTestVideoDecoder::EndFlush()\n"));
+	DBG_TRACE(TEXT("EndFlush()"));
 	return __super::EndFlush();
 }
 
 HRESULT CTVTestVideoDecoder::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate)
 {
-	TRACE(TEXT("CTVTestVideoDecoder::NewSegment() %lld %lld %f\n"), tStart, tStop, dRate);
+	DBG_TRACE(TEXT("NewSegment() : %lld %lld %f"), tStart, tStop, dRate);
 	CAutoLock Lock(&m_csReceive);
 	m_fDropFrames = false;
 	return __super::NewSegment(tStart, tStop, dRate);
@@ -191,7 +191,7 @@ void CTVTestVideoDecoder::GetOutputFormatList(OutputFormatList *pFormatList) con
 
 HRESULT CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 {
-	TRACE(TEXT("CTVTestVideoDecoder::InitDecode()\n"));
+	DBG_TRACE(TEXT("CTVTestVideoDecoder::InitDecode()"));
 
 	CAutoLock Lock(&m_csReceive);
 
@@ -202,7 +202,7 @@ HRESULT CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 	CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
 	if (pDXVADecoder) {
 		if (!m_fDXVAOutput) {
-			TRACE(TEXT("Fallback to software decoder\n"));
+			DBG_TRACE(TEXT("Fallback to software decoder"));
 			SafeDelete(m_pDecoder);
 			m_fDXVAConnect = false;
 		} else {
@@ -296,10 +296,10 @@ void CTVTestVideoDecoder::SetFrameStatus()
 		}
 	}
 	if (!m_fTelecineMode && fTelecineMode) {
-		TRACE(TEXT("Enter telecine mode\n"));
+		DBG_TRACE(TEXT("Enter telecine mode"));
 		m_fTelecineMode = true;
 	} else if (m_fTelecineMode && !fTelecineMode && m_FrameCount - m_LastFilmFrame >= 30 * 6) {
-		TRACE(TEXT("Exit telecine mode\n"));
+		DBG_TRACE(TEXT("Exit telecine mode"));
 		m_fTelecineMode = false;
 	}
 	m_FrameCount++;
@@ -649,7 +649,7 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 							m_FrameBuffer.m_AspectX, m_FrameBuffer.m_AspectY,
 							false, false, m_AvgTimePerFrame, true);
 						if (FAILED(hr)) {
-							TRACE(TEXT("ReconnectOutput() failed (%x)\n"), hr);
+							DBG_ERROR(TEXT("ReconnectOutput() failed (%x)"), hr);
 							return hr;
 						}
 
@@ -664,19 +664,19 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 							hr = Deliver(pSample, &m_FrameBuffer);
 							pSample->Release();
 							if (FAILED(hr)) {
-								TRACE(TEXT("Deliver() failed (%x)\n"), hr);
+								DBG_ERROR(TEXT("Deliver() failed (%x)"), hr);
 								return hr;
 							}
 						}
 #ifdef _DEBUG
 						else if (FAILED(hr)) {
-							TRACE(TEXT("DecodeFrame() failed (%x)\n"), hr);
+							DBG_ERROR(TEXT("DecodeFrame() failed (%x)"), hr);
 						}
 #endif
 					} else {
 						hr = DeliverFrame(&m_FrameBuffer);
 						if (FAILED(hr)) {
-							TRACE(TEXT("DeliverFrame() failed (%x)\n"), hr);
+							DBG_ERROR(TEXT("DeliverFrame() failed (%x)"), hr);
 							return hr;
 						}
 					}
@@ -685,7 +685,7 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 			break;
 
 		case STATE_INVALID:
-			TRACE(TEXT("STATE_INVALID\n"));
+			DBG_TRACE(TEXT("STATE_INVALID"));
 			InitDecode(false);
 			break;
 		}
@@ -1036,9 +1036,9 @@ HRESULT CTVTestVideoDecoder::CheckInputType(const CMediaType *mtIn)
 
 HRESULT CTVTestVideoDecoder::BreakConnect(PIN_DIRECTION dir)
 {
-	TRACE(TEXT("BreakConnect() : %s\n"),
-		  dir == PINDIR_INPUT  ? TEXT("input") :
-		  dir == PINDIR_OUTPUT ? TEXT("output") : TEXT("?"));
+	DBG_TRACE(TEXT("BreakConnect() : %s"),
+			  dir == PINDIR_INPUT  ? TEXT("input") :
+			  dir == PINDIR_OUTPUT ? TEXT("output") : TEXT("?"));
 
 	if (dir == PINDIR_INPUT) {
 		SafeDelete(m_pDecoder);
@@ -1049,9 +1049,9 @@ HRESULT CTVTestVideoDecoder::BreakConnect(PIN_DIRECTION dir)
 
 HRESULT CTVTestVideoDecoder::CompleteConnect(PIN_DIRECTION direction, IPin *pReceivePin)
 {
-	TRACE(TEXT("CompleteConnect() : %s\n"),
-		  direction == PINDIR_INPUT  ? TEXT("input") :
-		  direction == PINDIR_OUTPUT ? TEXT("output") : TEXT("?"));
+	DBG_TRACE(TEXT("CompleteConnect() : %s"),
+			  direction == PINDIR_INPUT  ? TEXT("input") :
+			  direction == PINDIR_OUTPUT ? TEXT("output") : TEXT("?"));
 
 	if (direction == PINDIR_OUTPUT) {
 		delete m_pDecoder;
@@ -1084,7 +1084,7 @@ HRESULT CTVTestVideoDecoder::CompleteConnect(PIN_DIRECTION direction, IPin *pRec
 
 HRESULT CTVTestVideoDecoder::StartStreaming()
 {
-	TRACE(TEXT("StartStreaming()\n"));
+	DBG_TRACE(TEXT("StartStreaming()"));
 
 	InitDecode(true);
 
@@ -1093,7 +1093,7 @@ HRESULT CTVTestVideoDecoder::StartStreaming()
 
 HRESULT CTVTestVideoDecoder::StopStreaming()
 {
-	TRACE(TEXT("StopStreaming()\n"));
+	DBG_TRACE(TEXT("StopStreaming()"));
 
 	//m_pDecoder->Close();
 
@@ -1102,7 +1102,7 @@ HRESULT CTVTestVideoDecoder::StopStreaming()
 
 HRESULT CTVTestVideoDecoder::AlterQuality(Quality q)
 {
-	//TRACE(TEXT("AlterQuality() Proportion %ld Late %lld\n"), q.Proportion, q.Late);
+	//DBG_TRACE(TEXT("AlterQuality() : Proportion %ld Late %lld"), q.Proportion, q.Late);
 	if (q.Late > 100 * 10000LL) {
 		m_fDropFrames = true;
 	} else if (q.Late <= 0) {
@@ -1166,7 +1166,7 @@ STDMETHODIMP CTVTestVideoDecoder::CreatePage(const GUID &guid, IPropertyPage **p
 STDMETHODIMP CTVTestVideoDecoder::SetEnableDeinterlace(BOOL fEnable)
 {
 	CAutoLock Lock(&m_csProps);
-	TRACE(TEXT("SetEnableDeinterlace() %d\n"), fEnable);
+	DBG_TRACE(TEXT("SetEnableDeinterlace() : %d"), fEnable);
 	m_fEnableDeinterlace = fEnable != FALSE;
 	return S_OK;
 }
@@ -1182,7 +1182,7 @@ STDMETHODIMP CTVTestVideoDecoder::SetDeinterlaceMethod(TVTVIDEODEC_DeinterlaceMe
 		return E_INVALIDARG;
 	}
 	CAutoLock Lock(&m_csProps);
-	TRACE(TEXT("SetDeinterlaceMethod() %d\n"), Method);
+	DBG_TRACE(TEXT("SetDeinterlaceMethod() : %d"), Method);
 	m_DeinterlaceMethod = Method;
 	return S_OK;
 }
@@ -1195,7 +1195,7 @@ STDMETHODIMP_(TVTVIDEODEC_DeinterlaceMethod) CTVTestVideoDecoder::GetDeinterlace
 STDMETHODIMP CTVTestVideoDecoder::SetAdaptProgressive(BOOL fEnable)
 {
 	CAutoLock Lock(&m_csProps);
-	TRACE(TEXT("SetAdaptProgressive() %d\n"), fEnable);
+	DBG_TRACE(TEXT("SetAdaptProgressive() : %d"), fEnable);
 	m_fAdaptProgressive = fEnable != FALSE;
 	return S_OK;
 }
@@ -1208,7 +1208,7 @@ STDMETHODIMP_(BOOL) CTVTestVideoDecoder::GetAdaptProgressive()
 STDMETHODIMP CTVTestVideoDecoder::SetAdaptTelecine(BOOL fEnable)
 {
 	CAutoLock Lock(&m_csProps);
-	TRACE(TEXT("SetAdaptTelecine() %d\n"), fEnable);
+	DBG_TRACE(TEXT("SetAdaptTelecine() : %d"), fEnable);
 	m_fAdaptTelecine = fEnable != FALSE;
 	return S_OK;
 }
@@ -1221,7 +1221,7 @@ STDMETHODIMP_(BOOL) CTVTestVideoDecoder::GetAdaptTelecine()
 STDMETHODIMP CTVTestVideoDecoder::SetInterlacedFlag(BOOL fEnable)
 {
 	CAutoLock Lock(&m_csProps);
-	TRACE(TEXT("SetInterlacedFlag() %d\n"), fEnable);
+	DBG_TRACE(TEXT("SetInterlacedFlag() : %d"), fEnable);
 	m_fSetInterlacedFlag = fEnable != FALSE;
 	return S_OK;
 }
@@ -1301,7 +1301,7 @@ STDMETHODIMP CTVTestVideoDecoder::SetNumThreads(int NumThreads)
 		return E_INVALIDARG;
 	}
 	CAutoLock Lock(&m_csProps);
-	TRACE(TEXT("SetNumThreads() %d\n"), NumThreads);
+	DBG_TRACE(TEXT("SetNumThreads() : %d"), NumThreads);
 	m_NumThreads = NumThreads;
 	return S_OK;
 }
@@ -1314,7 +1314,7 @@ STDMETHODIMP_(int) CTVTestVideoDecoder::GetNumThreads()
 STDMETHODIMP CTVTestVideoDecoder::SetEnableDXVA2(BOOL fEnable)
 {
 	CAutoLock Lock(&m_csProps);
-	TRACE(TEXT("SetEnableDXVA2() %d\n"), fEnable);
+	DBG_TRACE(TEXT("SetEnableDXVA2() : %d"), fEnable);
 	m_fDXVA2Decode = fEnable != FALSE;
 	return S_OK;
 }

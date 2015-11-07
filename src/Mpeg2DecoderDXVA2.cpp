@@ -111,7 +111,7 @@ mpeg2_state_t CMpeg2DecoderDXVA2::Parse()
 
 HRESULT CMpeg2DecoderDXVA2::CreateDecoderService(CTVTestVideoDecoder *pFilter)
 {
-	TRACE(TEXT("CMpeg2DecoderDXVA2::CreateDecoderService()\n"));
+	DBG_TRACE(TEXT("CMpeg2DecoderDXVA2::CreateDecoderService()"));
 
 	if (!pFilter)
 		return E_POINTER;
@@ -144,27 +144,19 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoderService(CTVTestVideoDecoder *pFilter)
 					::MultiByteToWideChar(CP_ACP, 0, AdapterID.Driver, -1, szDriver, _countof(szDriver));
 					::MultiByteToWideChar(CP_ACP, 0, AdapterID.Description, -1, szDescription, _countof(szDescription));
 					::MultiByteToWideChar(CP_ACP, 0, AdapterID.DeviceName, -1, szDeviceName, _countof(szDeviceName));
-					TRACE(TEXT("--- Adapter information ---\n")
-						  TEXT("     Driver : %s\n")
-						  TEXT("Description : %s\n")
-						  TEXT("Device name : %s\n")
-						  TEXT("    Product : %08x\n")
-						  TEXT("    Version : %d.%d.%d\n")
-						  TEXT("     Vendor : %08x\n")
-						  TEXT("  Device ID : %08x\n")
-						  TEXT("  Subsystem : %08x\n")
-						  TEXT("   Revision : %08x\n"),
-						  szDriver,
-						  szDescription,
-						  szDeviceName,
-						  HIWORD(AdapterID.DriverVersion.HighPart),
-						  LOWORD(AdapterID.DriverVersion.HighPart),
-						  HIWORD(AdapterID.DriverVersion.LowPart),
-						  LOWORD(AdapterID.DriverVersion.LowPart),
-						  AdapterID.VendorId,
-						  AdapterID.DeviceId,
-						  AdapterID.SubSysId,
-						  AdapterID.Revision);
+					DBG_TRACE(TEXT("--- Adapter information ---"));
+					DBG_TRACE(TEXT("     Driver : %s"), szDriver);
+					DBG_TRACE(TEXT("Description : %s"), szDescription);
+					DBG_TRACE(TEXT("Device name : %s"), szDeviceName);
+					DBG_TRACE(TEXT("    Product : %08x"), HIWORD(AdapterID.DriverVersion.HighPart));
+					DBG_TRACE(TEXT("    Version : %d.%d.%d"),
+							  LOWORD(AdapterID.DriverVersion.HighPart),
+							  HIWORD(AdapterID.DriverVersion.LowPart),
+							  LOWORD(AdapterID.DriverVersion.LowPart));
+					DBG_TRACE(TEXT("     Vendor : %08x"), AdapterID.VendorId);
+					DBG_TRACE(TEXT("  Device ID : %08x"), AdapterID.DeviceId);
+					DBG_TRACE(TEXT("  Subsystem : %08x"), AdapterID.SubSysId);
+					DBG_TRACE(TEXT("   Revision : %08x"), AdapterID.Revision);
 					m_AdapterIdentifier = AdapterID;
 				}
 				pD3D->Release();
@@ -180,7 +172,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoderService(CTVTestVideoDecoder *pFilter)
 	IDirectXVideoDecoderService *pDecoderService;
 	hr = m_pDeviceManager->GetVideoService(m_pFilter->m_hDXVADevice, IID_PPV_ARGS(&pDecoderService));
 	if (FAILED(hr)) {
-		TRACE(TEXT("GetVideoService() failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("GetVideoService() failed (%x)"), hr);
 		CloseDecoderService();
 		return hr;
 	}
@@ -191,7 +183,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoderService(CTVTestVideoDecoder *pFilter)
 
 void CMpeg2DecoderDXVA2::CloseDecoderService()
 {
-	TRACE(TEXT("CMpeg2DecoderDXVA2::CloseDecoderService()\n"));
+	DBG_TRACE(TEXT("CMpeg2DecoderDXVA2::CloseDecoderService()"));
 
 	CloseDecoder();
 
@@ -202,7 +194,7 @@ void CMpeg2DecoderDXVA2::CloseDecoderService()
 
 HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int SurfaceCount)
 {
-	TRACE(TEXT("CMpeg2DecoderDXVA2::CreateDecoder()\n"));
+	DBG_TRACE(TEXT("CMpeg2DecoderDXVA2::CreateDecoder()"));
 
 	if (!ppSurface)
 		return E_POINTER;
@@ -217,7 +209,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 	GUID *pGuids;
 	hr = m_pDecoderService->GetDecoderDeviceGuids(&Count, &pGuids);
 	if (FAILED(hr)) {
-		TRACE(TEXT("GetDecoderDeviceGuids() failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("GetDecoderDeviceGuids() failed (%x)"), hr);
 		return hr;
 	}
 
@@ -234,14 +226,14 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 	}
 	::CoTaskMemFree(pGuids);
 	if (!fFound) {
-		TRACE(TEXT("Decoder not found\n"));
+		DBG_ERROR(TEXT("Decoder not found"));
 		return hr;
 	}
 
 	D3DFORMAT *pFormats;
 	hr = m_pDecoderService->GetDecoderRenderTargets(guidDecoder, &Count, &pFormats);
 	if (FAILED(hr)) {
-		TRACE(TEXT("GetDecoderRenderTargets() failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("GetDecoderRenderTargets() failed (%x)"), hr);
 		return hr;
 	}
 
@@ -254,7 +246,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 	}
 	::CoTaskMemFree(pFormats);
 	if (!fFound) {
-		TRACE(TEXT("Format not available\n"));
+		DBG_ERROR(TEXT("Format not available"));
 		return hr;
 	}
 
@@ -275,7 +267,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 	hr = m_pDecoderService->GetDecoderConfigurations(
 		guidDecoder, &VideoDesc, nullptr, &Count, &pConfigs);
 	if (FAILED(hr)) {
-		TRACE(TEXT("GetDecoderConfigurations() failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("GetDecoderConfigurations() failed (%x)"), hr);
 		return hr;
 	}
 
@@ -301,7 +293,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 		&pVideoDecoder);
 	::CoTaskMemFree(pConfigs);
 	if (FAILED(hr)) {
-		TRACE(TEXT("CreateVideoDecoder() failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("CreateVideoDecoder() failed (%x)"), hr);
 		return hr;
 	}
 	m_pVideoDecoder = pVideoDecoder;
@@ -311,7 +303,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 
 void CMpeg2DecoderDXVA2::CloseDecoder()
 {
-	TRACE(TEXT("CMpeg2DecoderDXVA2::CloseDecoder()\n"));
+	DBG_TRACE(TEXT("CMpeg2DecoderDXVA2::CloseDecoder()"));
 
 	ResetDecoding();
 
@@ -321,7 +313,7 @@ void CMpeg2DecoderDXVA2::CloseDecoder()
 
 HRESULT CMpeg2DecoderDXVA2::RecreateDecoder()
 {
-	TRACE(TEXT("CMpeg2DecoderDXVA2::RecreateDecoder()\n"));
+	DBG_TRACE(TEXT("CMpeg2DecoderDXVA2::RecreateDecoder()"));
 
 	if (!m_pVideoDecoder || !m_pDecoderService)
 		return E_UNEXPECTED;
@@ -364,7 +356,7 @@ HRESULT CMpeg2DecoderDXVA2::RecreateDecoder()
 
 void CMpeg2DecoderDXVA2::ResetDecoding()
 {
-	TRACE(TEXT("CMpeg2DecoderDXVA2::ResetDecoding()\n"));
+	DBG_TRACE(TEXT("CMpeg2DecoderDXVA2::ResetDecoding()"));
 
 	for (auto &e: m_Samples) {
 		SafeRelease(e.pSample);
@@ -413,7 +405,7 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 	hr = m_pDeviceManager->TestDevice(m_pFilter->m_hDXVADevice);
 	if (FAILED(hr)) {
 		if (hr == DXVA2_E_NEW_VIDEO_DEVICE) {
-			TRACE(TEXT("Device lost\n"));
+			DBG_TRACE(TEXT("Device lost"));
 			m_fDeviceLost = true;
 		}
 		return hr;
@@ -423,17 +415,17 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 	case PIC_FLAG_CODING_TYPE_I:
 		m_PrevRefSurfaceIndex = -1;
 		m_ForwardRefSurfaceIndex = -1;
-		//TRACE(TEXT("I [%d]\n"), m_CurSurfaceIndex);
+		//DBG_TRACE(TEXT("I [%d]"), m_CurSurfaceIndex);
 		break;
 	case PIC_FLAG_CODING_TYPE_P:
 		m_PrevRefSurfaceIndex = GetFBufSampleID(m_pDec->fbuf[1]);
 		m_ForwardRefSurfaceIndex = -1;
-		//TRACE(TEXT("P [%d]->%d\n"), m_CurSurfaceIndex, m_PrevRefSurfaceIndex);
+		//DBG_TRACE(TEXT("P [%d]->%d"), m_CurSurfaceIndex, m_PrevRefSurfaceIndex);
 		break;
 	case PIC_FLAG_CODING_TYPE_B:
 		m_PrevRefSurfaceIndex = GetFBufSampleID(m_pDec->fbuf[1]);
 		m_ForwardRefSurfaceIndex = GetFBufSampleID(m_pDec->fbuf[2]);
-		//TRACE(TEXT("B %d->[%d]->%d\n"), m_PrevRefSurfaceIndex, m_CurSurfaceIndex, m_ForwardRefSurfaceIndex);
+		//DBG_TRACE(TEXT("B %d->[%d]->%d"), m_PrevRefSurfaceIndex, m_CurSurfaceIndex, m_ForwardRefSurfaceIndex);
 		if (m_ForwardRefSurfaceIndex < 0)
 			return S_FALSE;
 		break;

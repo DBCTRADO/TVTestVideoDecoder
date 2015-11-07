@@ -106,7 +106,7 @@ CDeinterlacer_DXVA::~CDeinterlacer_DXVA()
 
 bool CDeinterlacer_DXVA::Initialize()
 {
-	TRACE(TEXT("CDeinterlacer_DXVA::Initialize()\n"));
+	DBG_TRACE(TEXT("CDeinterlacer_DXVA::Initialize()"));
 
 	HRESULT hr;
 
@@ -114,7 +114,7 @@ bool CDeinterlacer_DXVA::Initialize()
 		if (!m_hD3D9Lib) {
 			m_hD3D9Lib = ::LoadLibrary(TEXT("d3d9.dll"));
 			if (!m_hD3D9Lib) {
-				TRACE(TEXT("Failed to load d3d9.dll\n"));
+				DBG_ERROR(TEXT("Failed to load d3d9.dll"));
 				return false;
 			}
 		}
@@ -122,7 +122,7 @@ bool CDeinterlacer_DXVA::Initialize()
 		if (!m_hDXVA2Lib) {
 			m_hDXVA2Lib = ::LoadLibrary(TEXT("dxva2.dll"));
 			if (!m_hDXVA2Lib) {
-				TRACE(TEXT("Failed to load dxva2.dll\n"));
+				DBG_ERROR(TEXT("Failed to load dxva2.dll"));
 				return false;
 			}
 		}
@@ -131,13 +131,13 @@ bool CDeinterlacer_DXVA::Initialize()
 			auto pDirect3DCreate9 =
 				reinterpret_cast<decltype(Direct3DCreate9)*>(::GetProcAddress(m_hD3D9Lib, "Direct3DCreate9"));
 			if (!pDirect3DCreate9) {
-				TRACE(TEXT("Failed to get Direct3DCreate9() address\n"));
+				DBG_ERROR(TEXT("Failed to get Direct3DCreate9() address"));
 				return false;
 			}
 
 			m_pDirect3D9 = pDirect3DCreate9(D3D_SDK_VERSION);
 			if (!m_pDirect3D9) {
-				TRACE(TEXT("Failed to create IDirect3D9\n"));
+				DBG_ERROR(TEXT("Failed to create IDirect3D9"));
 				return false;
 			}
 		}
@@ -168,7 +168,7 @@ bool CDeinterlacer_DXVA::Initialize()
 				&d3dpp,
 				&pDirect3DDevice9);
 			if (hr != D3D_OK) {
-				TRACE(TEXT("IDirect3D9::CreateDevice() failed (%x)\n"), hr);
+				DBG_ERROR(TEXT("IDirect3D9::CreateDevice() failed (%x)"), hr);
 				return false;
 			}
 			m_pDirect3DDevice9 = pDirect3DDevice9;
@@ -178,20 +178,20 @@ bool CDeinterlacer_DXVA::Initialize()
 			reinterpret_cast<decltype(DXVA2CreateDirect3DDeviceManager9)*>(
 				::GetProcAddress(m_hDXVA2Lib, "DXVA2CreateDirect3DDeviceManager9"));
 		if (!pDXVA2CreateDirect3DDeviceManager9) {
-			TRACE(TEXT("Failed to get DXVA2CreateDirect3DDeviceManager9() address\n"));
+			DBG_ERROR(TEXT("Failed to get DXVA2CreateDirect3DDeviceManager9() address"));
 			return false;
 		}
 
 		IDirect3DDeviceManager9 *pDeviceManager;
 		hr = pDXVA2CreateDirect3DDeviceManager9(&m_ResetToken, &pDeviceManager);
 		if (FAILED(hr)) {
-			TRACE(TEXT("DXVA2CreateDirect3DDeviceManager9() failed (%x)\n"), hr);
+			DBG_ERROR(TEXT("DXVA2CreateDirect3DDeviceManager9() failed (%x)"), hr);
 			return false;
 		}
 
 		hr = pDeviceManager->ResetDevice(m_pDirect3DDevice9, m_ResetToken);
 		if (FAILED(hr)) {
-			TRACE(TEXT("IDirect3DDeviceManager9::ResetDevice() failed (%x)\n"), hr);
+			DBG_ERROR(TEXT("IDirect3DDeviceManager9::ResetDevice() failed (%x)"), hr);
 			pDeviceManager->Release();
 			return false;
 		}
@@ -205,20 +205,20 @@ bool CDeinterlacer_DXVA::Initialize()
 		if (m_hDevice) {
 			hr = m_pDeviceManager->GetVideoService(m_hDevice, IID_PPV_ARGS(&pVideoProcessorService));
 			if (FAILED(hr)) {
-				TRACE(TEXT("IDirect3DDeviceManager9::GetVideoService() failed (%x)\n"), hr);
+				DBG_ERROR(TEXT("IDirect3DDeviceManager9::GetVideoService() failed (%x)"), hr);
 				return false;
 			}
 		} else {
 			HANDLE hDevice;
 			hr = m_pDeviceManager->OpenDeviceHandle(&hDevice);
 			if (FAILED(hr)) {
-				TRACE(TEXT("IDirect3DDeviceManager9::OpenDeviceHandle() failed (%x)\n"), hr);
+				DBG_ERROR(TEXT("IDirect3DDeviceManager9::OpenDeviceHandle() failed (%x)"), hr);
 				return false;
 			}
 			hr = m_pDeviceManager->GetVideoService(hDevice, IID_PPV_ARGS(&pVideoProcessorService));
 			m_pDeviceManager->CloseDeviceHandle(hDevice);
 			if (FAILED(hr)) {
-				TRACE(TEXT("IDirect3DDeviceManager9::GetVideoService() failed (%x)\n"), hr);
+				DBG_ERROR(TEXT("IDirect3DDeviceManager9::GetVideoService() failed (%x)"), hr);
 				return false;
 			}
 		}
@@ -299,12 +299,12 @@ bool CDeinterlacer_DXVA::OpenProcessor(int Width, int Height, const DXVA2_VideoD
 
 	hr = m_pVideoProcessorService->GetVideoProcessorDeviceGuids(&desc, &Count, &guids);
 	if (FAILED(hr)) {
-		TRACE(TEXT("IDirectXVideoProcessorService::GetVideoProcessorDeviceGuids() failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("IDirectXVideoProcessorService::GetVideoProcessorDeviceGuids() failed (%x)"), hr);
 		return false;
 	}
 
 	if (Count == 0) {
-		TRACE(TEXT("Unable to find any video processor devices\n"));
+		DBG_ERROR(TEXT("Unable to find any video processor devices"));
 		return false;
 	}
 
@@ -323,7 +323,7 @@ bool CDeinterlacer_DXVA::OpenProcessor(int Width, int Height, const DXVA2_VideoD
 			const DeviceInfo *pDevice = FindDevice(guid);
 
 			if (pDevice) {
-				TRACE(TEXT("Deinterlace processor found (%s)\n"), pDevice->pszName);
+				DBG_TRACE(TEXT("Deinterlace processor found (%s)"), pDevice->pszName);
 				guidDevice = guid;
 				break;
 			} else if (caps.DeinterlaceTechnology) {
@@ -336,7 +336,7 @@ bool CDeinterlacer_DXVA::OpenProcessor(int Width, int Height, const DXVA2_VideoD
 	::CoTaskMemFree(guids);
 
 	if (guidDevice == GUID_NULL) {
-		TRACE(TEXT("Unable to find any deinterlace processors\n"));
+		DBG_ERROR(TEXT("Unable to find any deinterlace processors"));
 		return false;
 	}
 
@@ -344,14 +344,14 @@ bool CDeinterlacer_DXVA::OpenProcessor(int Width, int Height, const DXVA2_VideoD
 	hr = m_pVideoProcessorService->CreateVideoProcessor(
 		guidDevice, &desc, desc.Format/*D3DFMT_X8R8G8B8*/, 0, &pVideoProcessor);
 	if (FAILED(hr)) {
-		TRACE(TEXT("Failed to create IDirectXVideoProcessor (%x)\n"), hr);
+		DBG_ERROR(TEXT("Failed to create IDirectXVideoProcessor (%x)"), hr);
 		return false;
 	}
 
 	m_pVideoProcessor = pVideoProcessor;
 
-	TRACE(TEXT("Backward ref %u / Forward ref %u\n"),
-		  caps.NumBackwardRefSamples, caps.NumForwardRefSamples);
+	DBG_TRACE(TEXT("Backward ref %u / Forward ref %u"),
+			  caps.NumBackwardRefSamples, caps.NumForwardRefSamples);
 
 	m_BackwardRefSamples = caps.NumBackwardRefSamples;
 	m_ForwardRefSamples = caps.NumForwardRefSamples;
@@ -397,7 +397,7 @@ bool CDeinterlacer_DXVA::OpenProcessor(int Width, int Height, const DXVA2_VideoD
 		&m_Surfaces[0],
 		nullptr);
 	if (FAILED(hr)) {
-		TRACE(TEXT("Failed to create surface (%x)\n"), hr);
+		DBG_ERROR(TEXT("Failed to create surface (%x)"), hr);
 		m_Surfaces.clear();
 		return false;
 	}
@@ -441,7 +441,7 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 
 	IDirect3DSurface9 *pSurface = GetFreeSurface();
 	if (!pSurface) {
-		TRACE(TEXT("Unable to find unused surface\n"));
+		DBG_ERROR(TEXT("Unable to find unused surface"));
 		return FRAME_SKIP;
 	}
 
@@ -451,7 +451,7 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 
 	hr = pSurface->GetDesc(&desc);
 	if (FAILED(hr)) {
-		TRACE(TEXT("Failed to get surface desc (%x)\n"), hr);
+		DBG_ERROR(TEXT("Failed to get surface desc (%x)"), hr);
 		return FRAME_SKIP;
 	}
 
@@ -459,7 +459,7 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 
 	hr = pSurface->LockRect(&rect, nullptr, D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
 	if (FAILED(hr)) {
-		TRACE(TEXT("Failed to lock surface (%x)\n"), hr);
+		DBG_ERROR(TEXT("Failed to lock surface (%x)"), hr);
 		return FRAME_SKIP;
 	}
 
@@ -533,7 +533,7 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 
 	hr = m_pVideoProcessor->VideoProcessBlt(pSurface, &blt, Samples, (UINT)m_RefSamples.size(), nullptr);
 	if (FAILED(hr)) {
-		TRACE(TEXT("VideoProcessBlt() failed (%x)\n"), hr);
+		DBG_ERROR(TEXT("VideoProcessBlt() failed (%x)"), hr);
 		return FRAME_SKIP;
 	}
 
@@ -543,25 +543,25 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 
 		hr = pSurface->GetDesc(&descSrc);
 		if (FAILED(hr)) {
-			TRACE(TEXT("Failed to get surface desc (%x)\n"), hr);
+			DBG_ERROR(TEXT("Failed to get surface desc (%x)"), hr);
 			return FRAME_SKIP;
 		}
 
 		hr = pDstBuffer->m_pSurface->GetDesc(&descDst);
 		if (FAILED(hr)) {
-			TRACE(TEXT("Failed to get surface desc (%x)\n"), hr);
+			DBG_ERROR(TEXT("Failed to get surface desc (%x)"), hr);
 			return FRAME_SKIP;
 		}
 
 		hr = pSurface->LockRect(&rectSrc, nullptr, D3DLOCK_READONLY | D3DLOCK_NOSYSLOCK);
 		if (FAILED(hr)) {
-			TRACE(TEXT("Failed to lock surface (%x)\n"), hr);
+			DBG_ERROR(TEXT("Failed to lock surface (%x)"), hr);
 			return FRAME_SKIP;
 		}
 
 		hr = pDstBuffer->m_pSurface->LockRect(&rectDst, nullptr, D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
 		if (FAILED(hr)) {
-			TRACE(TEXT("Failed to lock surface (%x)\n"), hr);
+			DBG_ERROR(TEXT("Failed to lock surface (%x)"), hr);
 			pSurface->UnlockRect();
 			return FRAME_SKIP;
 		}
@@ -576,13 +576,13 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 	} else {
 		hr = pSurface->GetDesc(&desc);
 		if (FAILED(hr)) {
-			TRACE(TEXT("Failed to get surface desc (%x)\n"), hr);
+			DBG_ERROR(TEXT("Failed to get surface desc (%x)"), hr);
 			return FRAME_SKIP;
 		}
 
 		hr = pSurface->LockRect(&rect, nullptr, D3DLOCK_READONLY | D3DLOCK_NOSYSLOCK);
 		if (FAILED(hr)) {
-			TRACE(TEXT("Failed to lock surface (%x)\n"), hr);
+			DBG_ERROR(TEXT("Failed to lock surface (%x)"), hr);
 			return FRAME_SKIP;
 		}
 

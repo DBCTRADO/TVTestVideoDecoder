@@ -33,7 +33,9 @@ void DebugTrace(LPCTSTR pszFormat, ...)
 
 	va_list Args;
 	va_start(Args, pszFormat);
-	::_vstprintf_s(szText + Length, _countof(szText) - Length, pszFormat, Args);
+	Length += ::_vstprintf_s(szText + Length, _countof(szText) - 1 - Length, pszFormat, Args);
+	szText[Length] = TEXT('\n');
+	szText[Length + 1] = TEXT('\0');
 	va_end(Args);
 
 	::OutputDebugString(szText);
