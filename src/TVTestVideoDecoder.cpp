@@ -1103,7 +1103,7 @@ HRESULT CTVTestVideoDecoder::StopStreaming()
 HRESULT CTVTestVideoDecoder::AlterQuality(Quality q)
 {
 	//DBG_TRACE(TEXT("AlterQuality() : Proportion %ld Late %lld"), q.Proportion, q.Late);
-	if (q.Late > 100 * 10000LL) {
+	if (q.Late > 300 * 10000LL) {
 		m_fDropFrames = true;
 	} else if (q.Late <= 0) {
 		m_fDropFrames = false;
