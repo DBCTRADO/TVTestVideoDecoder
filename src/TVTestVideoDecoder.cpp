@@ -598,13 +598,12 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 
 		case STATE_SLICE:
 		case STATE_END:
-			{
+			if ((pInfo->display_fbuf || m_fDXVAOutput)
+					&& pInfo->sequence->width == pInfo->sequence->chroma_width * 2
+					&& pInfo->sequence->height == pInfo->sequence->chroma_height * 2) {
 				const mpeg2_picture_t *picture = pInfo->display_picture;
 
-				if (picture && !(picture->flags & PIC_FLAG_SKIP)
-						&& (pInfo->display_fbuf || m_fDXVAOutput)
-						&& pInfo->sequence->width == pInfo->sequence->chroma_width * 2
-						&& pInfo->sequence->height == pInfo->sequence->chroma_height * 2) {
+				if (picture) {
 					int Width = pInfo->sequence->picture_width;
 					int Height = pInfo->sequence->picture_height;
 
@@ -634,16 +633,18 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 					if (m_FrameBuffer.m_Flags & FRAME_FLAG_I_FRAME) {
 						m_fWaitForKeyFrame = false;
 					}
+				}
 
-					CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
-					if (pDXVADecoder) {
-						if (pDXVADecoder->IsDeviceLost()) {
-							break;
-						}
-						if (!m_fDXVAOutput) {
-							return E_UNEXPECTED;
-						}
+				CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
+				if (pDXVADecoder) {
+					if (pDXVADecoder->IsDeviceLost()) {
+						break;
+					}
+					if (!m_fDXVAOutput) {
+						return E_UNEXPECTED;
+					}
 
+					if (picture) {
 						hr = ReconnectOutput(
 							m_FrameBuffer.m_Width, m_FrameBuffer.m_Height,
 							m_FrameBuffer.m_AspectX, m_FrameBuffer.m_AspectY,
@@ -652,33 +653,33 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 							DBG_ERROR(TEXT("ReconnectOutput() failed (%x)"), hr);
 							return hr;
 						}
+					}
 
-						IMediaSample *pSample;
-						hr = pDXVADecoder->DecodeFrame(&pSample);
-						if (hr == DXVA2_E_NEW_VIDEO_DEVICE) {
-							pDXVADecoder->CloseDecoderService();
-							CloseDXVA2DeviceManager();
-							break;
-						}
-						if (SUCCEEDED(hr) && pSample) {
-							hr = Deliver(pSample, &m_FrameBuffer);
-							pSample->Release();
-							if (FAILED(hr)) {
-								DBG_ERROR(TEXT("Deliver() failed (%x)"), hr);
-								return hr;
-							}
-						}
-#ifdef _DEBUG
-						else if (FAILED(hr)) {
-							DBG_ERROR(TEXT("DecodeFrame() failed (%x)"), hr);
-						}
-#endif
-					} else {
-						hr = DeliverFrame(&m_FrameBuffer);
+					IMediaSample *pSample;
+					hr = pDXVADecoder->DecodeFrame(&pSample);
+					if (hr == DXVA2_E_NEW_VIDEO_DEVICE) {
+						pDXVADecoder->CloseDecoderService();
+						CloseDXVA2DeviceManager();
+						break;
+					}
+					if (SUCCEEDED(hr) && pSample) {
+						hr = Deliver(pSample, &m_FrameBuffer);
+						pSample->Release();
 						if (FAILED(hr)) {
-							DBG_ERROR(TEXT("DeliverFrame() failed (%x)"), hr);
+							DBG_ERROR(TEXT("Deliver() failed (%x)"), hr);
 							return hr;
 						}
+					}
+#ifdef _DEBUG
+					else if (FAILED(hr)) {
+						DBG_ERROR(TEXT("DecodeFrame() failed (%x)"), hr);
+					}
+#endif
+				} else if (picture && !(picture->flags & PIC_FLAG_SKIP)) {
+					hr = DeliverFrame(&m_FrameBuffer);
+					if (FAILED(hr)) {
+						DBG_ERROR(TEXT("DeliverFrame() failed (%x)"), hr);
+						return hr;
 					}
 				}
 			}

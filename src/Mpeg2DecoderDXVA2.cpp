@@ -383,8 +383,12 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 		*ppSample = nullptr;
 	}
 
-	if (!m_pVideoDecoder) {
+	if (!m_pDec || !m_pVideoDecoder) {
 		return E_UNEXPECTED;
+	}
+
+	if (m_pDec->picture->flags & PIC_FLAG_SKIP) {
+		return GetDisplaySample(ppSample);
 	}
 
 	m_DecodeSampleIndex = GetFBufIndex(m_pDec->fbuf[0]);
@@ -518,25 +522,7 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 
 			hr = m_pVideoDecoder->Execute(&ExecParams);
 			if (SUCCEEDED(hr)) {
-				if (m_fWaitForDisplayKeyFrame) {
-					if (m_pDec->info.display_picture
-							&& (m_pDec->info.display_picture->flags & PIC_MASK_CODING_TYPE) == PIC_FLAG_CODING_TYPE_I) {
-						m_fWaitForDisplayKeyFrame = false;
-					}
-				}
-				if (ppSample) {
-					hr = S_FALSE;
-					if (!m_fWaitForDisplayKeyFrame) {
-						const int DisplaySampleIndex = GetFBufIndex(m_pDec->info.display_fbuf);
-						if (DisplaySampleIndex >= 0) {
-							*ppSample = m_Samples[DisplaySampleIndex].pSample;
-							if (*ppSample) {
-								m_Samples[DisplaySampleIndex].pSample = nullptr;
-								hr = S_OK;
-							}
-						}
-					}
-				}
+				hr = GetDisplaySample(ppSample);
 			}
 		}
 
@@ -757,4 +743,31 @@ int CMpeg2DecoderDXVA2::GetFBufSampleID(const mpeg2_fbuf_t *fbuf) const
 	if (Index >= 0)
 		return m_Samples[Index].SurfaceID;
 	return -1;
+}
+
+HRESULT CMpeg2DecoderDXVA2::GetDisplaySample(IMediaSample **ppSample)
+{
+	HRESULT hr = S_FALSE;
+
+	if (m_fWaitForDisplayKeyFrame) {
+		if (m_pDec->info.display_picture
+				&& (m_pDec->info.display_picture->flags & PIC_MASK_CODING_TYPE) == PIC_FLAG_CODING_TYPE_I) {
+			m_fWaitForDisplayKeyFrame = false;
+		}
+	}
+
+	if (ppSample) {
+		if (!m_fWaitForDisplayKeyFrame) {
+			const int DisplaySampleIndex = GetFBufIndex(m_pDec->info.display_fbuf);
+			if (DisplaySampleIndex >= 0) {
+				*ppSample = m_Samples[DisplaySampleIndex].pSample;
+				if (*ppSample) {
+					m_Samples[DisplaySampleIndex].pSample = nullptr;
+					hr = S_OK;
+				}
+			}
+		}
+	}
+
+	return hr;
 }

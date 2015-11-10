@@ -86,4 +86,5 @@ private:
 	static void SliceHook(mpeg2dec_t *mpeg2dec, int code, const uint8_t *buffer, int bytes);
 	int GetFBufIndex(const mpeg2_fbuf_t *fbuf) const;
 	int GetFBufSampleID(const mpeg2_fbuf_t *fbuf) const;
+	HRESULT GetDisplaySample(IMediaSample **ppSample);
 };
