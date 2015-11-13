@@ -346,7 +346,7 @@ void CTVTestVideoDecoder::SetTypeSpecificFlags(IMediaSample *pSample)
 			const CMediaType &mt = m_pOutput->CurrentMediaType();
 
 			if (IsMediaTypeInterlaced(&mt)) {
-				if (m_FrameBuffer.m_Flags & FRAME_FLAG_PROGRESSIVE_SEQUENCE) {
+				if (m_FrameBuffer.m_Flags & (FRAME_FLAG_PROGRESSIVE_FRAME | FRAME_FLAG_PROGRESSIVE_SEQUENCE)) {
 					props.dwTypeSpecificFlags |= AM_VIDEO_FLAG_WEAVE;
 				}
 
