@@ -378,19 +378,19 @@ void CTVTestVideoDecoder::SetTypeSpecificFlags(IMediaSample *pSample)
 DWORD CTVTestVideoDecoder::GetVideoInfoControlFlags() const
 {
 	DWORD Flags = AMCONTROL_USED | AMCONTROL_COLORINFO_PRESENT;
-	DXVA_ExtendedFormat *fmt = (DXVA_ExtendedFormat*)&Flags;
+	DXVA2_ExtendedFormat *fmt = (DXVA2_ExtendedFormat*)&Flags;
 
-	fmt->VideoChromaSubsampling = DXVA_VideoChromaSubsampling_MPEG2;
-//	fmt->NominalRange = m_fFullRange ? DXVA_NominalRange_0_255 : DXVA_NominalRange_16_235;
-	fmt->NominalRange = DXVA_NominalRange_16_235;
+	fmt->VideoChromaSubsampling = DXVA2_VideoChromaSubsampling_MPEG2;
+//	fmt->NominalRange = m_fFullRange ? DXVA2_NominalRange_0_255 : DXVA2_NominalRange_16_235;
+	fmt->NominalRange = DXVA2_NominalRange_16_235;
 #if 0
-	fmt->VideoTransferMatrix = DXVA_VideoTransferMatrix_Unknown;
-	fmt->VideoPrimaries = DXVA_VideoPrimaries_Unknown;
-	fmt->VideoTransferFunction = DXVA_VideoTransFunc_Unknown;
+	fmt->VideoTransferMatrix = DXVA2_VideoTransferMatrix_Unknown;
+	fmt->VideoPrimaries = DXVA2_VideoPrimaries_Unknown;
+	fmt->VideoTransferFunction = DXVA2_VideoTransFunc_Unknown;
 #else
-	fmt->VideoTransferMatrix = DXVA_VideoTransferMatrix_BT709;
-	fmt->VideoPrimaries = DXVA_VideoPrimaries_BT709;
-	fmt->VideoTransferFunction = DXVA_VideoTransFunc_22_709;
+	fmt->VideoTransferMatrix = DXVA2_VideoTransferMatrix_BT709;
+	fmt->VideoPrimaries = DXVA2_VideoPrimaries_BT709;
+	fmt->VideoTransferFunction = DXVA2_VideoTransFunc_22_709;
 #endif
 
 	const mpeg2_info_t *pInfo = m_pDecoder->GetMpeg2Info();
@@ -401,53 +401,53 @@ DWORD CTVTestVideoDecoder::GetVideoInfoControlFlags() const
 		if (sequence->flags & SEQ_FLAG_COLOUR_DESCRIPTION) {
 			switch (sequence->colour_primaries) {
 			case 1:
-				fmt->VideoPrimaries = DXVA_VideoPrimaries_BT709;
+				fmt->VideoPrimaries = DXVA2_VideoPrimaries_BT709;
 				break;
 			case 4:
-				fmt->VideoPrimaries = DXVA_VideoPrimaries_BT470_2_SysM;
+				fmt->VideoPrimaries = DXVA2_VideoPrimaries_BT470_2_SysM;
 				break;
 			case 5:
-				fmt->VideoPrimaries = DXVA_VideoPrimaries_BT470_2_SysBG;
+				fmt->VideoPrimaries = DXVA2_VideoPrimaries_BT470_2_SysBG;
 				break;
 			case 6:
-				fmt->VideoPrimaries = DXVA_VideoPrimaries_SMPTE170M;
+				fmt->VideoPrimaries = DXVA2_VideoPrimaries_SMPTE170M;
 				break;
 			case 7:
-				fmt->VideoPrimaries = DXVA_VideoPrimaries_SMPTE240M;
+				fmt->VideoPrimaries = DXVA2_VideoPrimaries_SMPTE240M;
 				break;
 			}
 
 			switch (sequence->matrix_coefficients) {
 			case 1:
-				fmt->VideoTransferMatrix = DXVA_VideoTransferMatrix_BT709;
+				fmt->VideoTransferMatrix = DXVA2_VideoTransferMatrix_BT709;
 				break;
 			case 5:
 			case 6:
-				fmt->VideoTransferMatrix = DXVA_VideoTransferMatrix_BT601;
+				fmt->VideoTransferMatrix = DXVA2_VideoTransferMatrix_BT601;
 				break;
 			case 7:
-				fmt->VideoTransferMatrix = DXVA_VideoTransferMatrix_SMPTE240M;
+				fmt->VideoTransferMatrix = DXVA2_VideoTransferMatrix_SMPTE240M;
 				break;
 			}
 
 			switch (sequence->transfer_characteristics) {
 			case 1:
-				fmt->VideoTransferFunction = DXVA_VideoTransFunc_22_709;
+				fmt->VideoTransferFunction = DXVA2_VideoTransFunc_22_709;
 				break;
 			case 4:
-				fmt->VideoTransferFunction = DXVA_VideoTransFunc_22;
+				fmt->VideoTransferFunction = DXVA2_VideoTransFunc_22;
 				break;
 			case 5:
-				fmt->VideoTransferFunction = DXVA_VideoTransFunc_28;
+				fmt->VideoTransferFunction = DXVA2_VideoTransFunc_28;
 				break;
 			case 6:
-				fmt->VideoTransferFunction = DXVA_VideoTransFunc_22_709;
+				fmt->VideoTransferFunction = DXVA2_VideoTransFunc_22_709;
 				break;
 			case 7:
-				fmt->VideoTransferFunction = DXVA_VideoTransFunc_22_240M;
+				fmt->VideoTransferFunction = DXVA2_VideoTransFunc_22_240M;
 				break;
 			case 8:
-				fmt->VideoTransferFunction = DXVA_VideoTransFunc_10;
+				fmt->VideoTransferFunction = DXVA2_VideoTransFunc_10;
 				break;
 			}
 		}
