@@ -618,26 +618,8 @@ static int picture_coding_ext (mpeg2dec_t * mpeg2dec)
     decoder->b_motion.f_code[0] = (buffer[1] & 15) - 1;
     decoder->b_motion.f_code[1] = (buffer[2] >> 4) - 1;
 
-    flags = picture->flags;
     decoder->intra_dc_precision = ((buffer[2] >> 2) & 3);
     decoder->picture_structure = buffer[2] & 3;
-    switch (decoder->picture_structure) {
-    case TOP_FIELD:
-	flags |= PIC_FLAG_TOP_FIELD_FIRST;
-    case BOTTOM_FIELD:
-	picture->nb_fields = 1;
-	break;
-    case FRAME_PICTURE:
-	if (!(mpeg2dec->sequence.flags & SEQ_FLAG_PROGRESSIVE_SEQUENCE)) {
-	    picture->nb_fields = (buffer[3] & 2) ? 3 : 2;
-	    flags |= (buffer[3] & 128) ? PIC_FLAG_TOP_FIELD_FIRST : 0;
-	    flags |= (buffer[3] &   2) ? PIC_FLAG_REPEAT_FIRST_FIELD : 0;
-	} else
-	    picture->nb_fields = (buffer[3]&2) ? ((buffer[3]&128) ? 6 : 4) : 2;
-	break;
-    default:
-	return 1;
-    }
     decoder->top_field_first = buffer[3] >> 7;
     decoder->frame_pred_frame_dct = (buffer[3] >> 6) & 1;
     decoder->concealment_motion_vectors = (buffer[3] >> 5) & 1;
@@ -648,6 +630,28 @@ static int picture_coding_ext (mpeg2dec_t * mpeg2dec)
     decoder->repeat_first_field = (buffer[3] >> 1) & 1;
     decoder->chroma_420_type = buffer[3] & 1;
     decoder->progressive_frame = (buffer[4] >> 7) & 1;
+
+    flags = picture->flags;
+    switch (decoder->picture_structure) {
+    case TOP_FIELD:
+	flags |= PIC_FLAG_TOP_FIELD_FIRST;
+    case BOTTOM_FIELD:
+	picture->nb_fields = 1;
+	break;
+    case FRAME_PICTURE:
+	if (!(mpeg2dec->sequence.flags & SEQ_FLAG_PROGRESSIVE_SEQUENCE)) {
+	    picture->nb_fields = decoder->repeat_first_field ? 3 : 2;
+	    if (decoder->top_field_first)
+		flags |= PIC_FLAG_TOP_FIELD_FIRST;
+	    if (decoder->repeat_first_field)
+		flags |= PIC_FLAG_REPEAT_FIRST_FIELD;
+	} else
+	    picture->nb_fields = (decoder->repeat_first_field ?
+				  (decoder->top_field_first ? 6 : 4) : 2);
+	break;
+    default:
+	return 1;
+    }
     if (!decoder->progressive_frame)
 	flags &= ~PIC_FLAG_PROGRESSIVE_FRAME;
     if (buffer[4] & 0x40)
