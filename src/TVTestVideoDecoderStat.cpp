@@ -102,7 +102,11 @@ HRESULT CTVTestVideoDecoderStat::OnActivate()
 	UpdateDXVADeviceDescription(m_Stat.DXVADeviceInfo.Description);
 
 	::SetDlgItemTextW(m_Dlg, IDC_STAT_VERSION,
-					  TVTVIDEODEC_FILTER_NAME L" ver." LTEXT(TVTVIDEODEC_VERSION_TEXT));
+					  TVTVIDEODEC_FILTER_NAME L" ver." LTEXT(TVTVIDEODEC_VERSION_TEXT)
+#ifdef TVTVIDEODEC_VERSION_STATUS
+					  L"-" LTEXT(TVTVIDEODEC_VERSION_STATUS)
+#endif
+					  );
 
 	::SetTimer(m_Dlg, 1, 500, nullptr);
 
