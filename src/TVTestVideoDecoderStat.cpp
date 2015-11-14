@@ -95,6 +95,7 @@ HRESULT CTVTestVideoDecoderStat::OnActivate()
 	::SetDlgItemInt(m_Dlg, IDC_STAT_P_FRAME_COUNT, m_Stat.PFrameCount, FALSE);
 	::SetDlgItemInt(m_Dlg, IDC_STAT_B_FRAME_COUNT, m_Stat.BFrameCount, FALSE);
 	::SetDlgItemInt(m_Dlg, IDC_STAT_SKIPPED_FRAME_COUNT, m_Stat.SkippedFrameCount, FALSE);
+	::SetDlgItemInt(m_Dlg, IDC_STAT_REPEAT_FIELD_COUNT, m_Stat.RepeatFieldCount, FALSE);
 	UpdatePlaybackRate(m_Stat.PlaybackRate);
 	UpdateBaseFPS(m_Stat.BaseTimePerFrame);
 	UpdateMode(m_Stat.Mode);
@@ -136,6 +137,8 @@ INT_PTR CTVTestVideoDecoderStat::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 				::SetDlgItemInt(hwnd, IDC_STAT_B_FRAME_COUNT, Stat.BFrameCount, FALSE);
 			if (Stat.SkippedFrameCount != m_Stat.SkippedFrameCount)
 				::SetDlgItemInt(hwnd, IDC_STAT_SKIPPED_FRAME_COUNT, Stat.SkippedFrameCount, FALSE);
+			if (Stat.RepeatFieldCount != m_Stat.RepeatFieldCount)
+				::SetDlgItemInt(hwnd, IDC_STAT_REPEAT_FIELD_COUNT, Stat.RepeatFieldCount, FALSE);
 			if (Stat.PlaybackRate != m_Stat.PlaybackRate)
 				UpdatePlaybackRate(Stat.PlaybackRate);
 			if (Stat.BaseTimePerFrame != m_Stat.BaseTimePerFrame)

@@ -590,6 +590,9 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 						}
 						break;
 					}
+
+					if (picture->flags & PIC_FLAG_REPEAT_FIRST_FIELD)
+						m_Statistics.RepeatFieldCount++;
 				}
 
 				m_pDecoder->Skip(pIn->IsPreroll() == S_OK || fDrop);
@@ -1429,6 +1432,10 @@ STDMETHODIMP CTVTestVideoDecoder::GetStatistics(TVTVIDEODEC_Statistics *pStatist
 
 	if (Mask & TVTVIDEODEC_STAT_BASE_TIME_PER_FRAME) {
 		pStatistics->BaseTimePerFrame = m_AvgTimePerFrame;
+	}
+
+	if (Mask & TVTVIDEODEC_STAT_FIELD_COUNT) {
+		pStatistics->RepeatFieldCount = m_Statistics.RepeatFieldCount;
 	}
 
 	if (Mask & TVTVIDEODEC_STAT_MODE) {
