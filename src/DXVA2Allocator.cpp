@@ -28,6 +28,8 @@
 CDXVA2Allocator::CDXVA2Allocator(CBaseVideoFilter *pFilter, HRESULT *phr)
 	: CBaseAllocator(L"DXVA2Allocator", nullptr, phr)
 	, m_pFilter(pFilter)
+	, m_SurfaceWidth(0)
+	, m_SurfaceHeight(0)
 {
 }
 
@@ -118,6 +120,10 @@ HRESULT CDXVA2Allocator::Alloc()
 
 			if (SUCCEEDED(hr)) {
 				m_lAllocated = m_lCount;
+
+				m_SurfaceWidth = Width;
+				m_SurfaceHeight = Height;
+
 				hr = m_pFilter->OnDXVA2SurfaceCreated(&m_SurfaceList[0], m_lAllocated);
 			} else {
 				Free();
@@ -153,6 +159,9 @@ void CDXVA2Allocator::Free()
 	}
 
 	m_lAllocated = 0;
+
+	m_SurfaceWidth = 0;
+	m_SurfaceHeight = 0;
 }
 
 

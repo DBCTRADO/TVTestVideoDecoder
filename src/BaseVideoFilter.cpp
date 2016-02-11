@@ -302,6 +302,11 @@ HRESULT CBaseVideoFilter::ReconnectOutput(
 	if (m_fDXVAConnect) {
 		hr = m_pOutput->SetMediaType(&mt);
 		m_fAttachMediaType = true;
+
+		if (m_pDXVA2Allocator
+				&& (GetAlignedWidth() > m_pDXVA2Allocator->GetSurfaceWidth()
+				    || GetAlignedHeight() > m_pDXVA2Allocator->GetSurfaceHeight()))
+			RecommitAllocator();
 	} else {
 		int RetryTimeout = 100;
 

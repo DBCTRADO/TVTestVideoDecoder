@@ -36,6 +36,8 @@ public:
 	CDXVA2Allocator(CBaseVideoFilter *pFilter, HRESULT *phr);
 	~CDXVA2Allocator();
 
+	int GetSurfaceWidth() const { return m_SurfaceWidth; }
+	int GetSurfaceHeight() const { return m_SurfaceHeight; }
 	BOOL IsCommitted() const { return m_bCommitted; }
 	BOOL IsDecommitInProgress() const { return m_bDecommitInProgress; }
 
@@ -47,6 +49,8 @@ public:
 private:
 	CBaseVideoFilter *m_pFilter;
 	std::vector<IDirect3DSurface9*> m_SurfaceList;
+	int m_SurfaceWidth;
+	int m_SurfaceHeight;
 };
 
 MIDL_INTERFACE("A332A32D-C039-4CA9-2DA3-32A339C0A94C")
