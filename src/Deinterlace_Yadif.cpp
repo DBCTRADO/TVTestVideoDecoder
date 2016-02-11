@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015 DBCTRADO
+ *  Copyright (C) 2015-2016 DBCTRADO
  *
  *  Port of YADIF from MPlayer
  *  Copyright (C) 2006 Michael Niedermayer <michaelni@gmx.at>

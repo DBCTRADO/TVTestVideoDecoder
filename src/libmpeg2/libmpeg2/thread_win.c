@@ -1,6 +1,6 @@
 /*
  * thread_win.c
- * Copyright (C) 2015      DBCTRADO
+ * Copyright (C) 2015-2016 DBCTRADO
  *
  * This file is part of mpeg2dec, a free MPEG-2 video stream decoder.
  * See http://libmpeg2.sourceforge.net/ for updates.
