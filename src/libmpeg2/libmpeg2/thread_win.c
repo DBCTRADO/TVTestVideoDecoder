@@ -292,7 +292,10 @@ mutex_t * mpeg2_mutex_create (void)
 
 void mpeg2_mutex_close (mutex_t * mutex)
 {
-    free (mutex);
+    if (mutex) {
+	DeleteCriticalSection (&(mutex->critical_section));
+	free (mutex);
+    }
 }
 
 void mpeg2_mutex_lock (mutex_t * mutex)
