@@ -97,6 +97,41 @@ bool PixelCopyI420ToNV12(
 			const uint8_t * restrict u = pSrcU, * restrict v = pSrcV;
 			int x = WidthC;
 
+#if defined(_M_AMD64)
+			for (; x >= 64; x -= 64) {
+				__m128i u0, u1, u2, u3, v0, v1, v2, v3;
+				__m128i uv0, uv1, uv2, uv3, uv4, uv5, uv6, uv7;
+
+				u0 = _mm_load_si128((const __m128i*)u + 0);
+				u1 = _mm_load_si128((const __m128i*)u + 1);
+				u2 = _mm_load_si128((const __m128i*)u + 2);
+				u3 = _mm_load_si128((const __m128i*)u + 3);
+				v0 = _mm_load_si128((const __m128i*)v + 0);
+				v1 = _mm_load_si128((const __m128i*)v + 1);
+				v2 = _mm_load_si128((const __m128i*)v + 2);
+				v3 = _mm_load_si128((const __m128i*)v + 3);
+				uv0 = _mm_unpacklo_epi8(u0, v0);
+				uv1 = _mm_unpackhi_epi8(u0, v0);
+				uv2 = _mm_unpacklo_epi8(u1, v1);
+				uv3 = _mm_unpackhi_epi8(u1, v1);
+				uv4 = _mm_unpacklo_epi8(u2, v2);
+				uv5 = _mm_unpackhi_epi8(u2, v2);
+				uv6 = _mm_unpacklo_epi8(u3, v3);
+				uv7 = _mm_unpackhi_epi8(u3, v3);
+				_mm_store_si128((__m128i*)uv + 0, uv0);
+				_mm_store_si128((__m128i*)uv + 1, uv1);
+				_mm_store_si128((__m128i*)uv + 2, uv2);
+				_mm_store_si128((__m128i*)uv + 3, uv3);
+				_mm_store_si128((__m128i*)uv + 4, uv4);
+				_mm_store_si128((__m128i*)uv + 5, uv5);
+				_mm_store_si128((__m128i*)uv + 6, uv6);
+				_mm_store_si128((__m128i*)uv + 7, uv7);
+				uv += 128;
+				u += 64;
+				v += 64;
+			}
+#endif
+
 			for (; x >= 32; x -= 32) {
 				__m128i u0, u1, v0, v1, uv0, uv1, uv2, uv3;
 
