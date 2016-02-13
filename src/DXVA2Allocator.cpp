@@ -72,13 +72,16 @@ HRESULT CDXVA2Allocator::Alloc()
 		m_SurfaceList.resize(m_lCount);
 
 		const int Width = m_pFilter->GetAlignedWidth(), Height = m_pFilter->GetAlignedHeight();
-		DBG_TRACE(TEXT("Create DXVA2 surfaces : %d x [%d x %d]"), m_lCount, Width, Height);
+		const D3DFORMAT SurfaceFormat = m_pFilter->GetDXVA2SurfaceFormat();
+		DBG_TRACE(TEXT("Create DXVA2 surfaces : '%c%c%c%c' %d x [%d x %d]"),
+				  SurfaceFormat & 0xff, (SurfaceFormat >> 8) & 0xff, (SurfaceFormat >> 16) & 0xff, SurfaceFormat >> 24,
+				  m_lCount, Width, Height);
 
 		hr = pDecoderService->CreateSurface(
 			Width,
 			Height,
 			m_lCount - 1,
-			D3DFMT_NV12,
+			SurfaceFormat,
 			D3DPOOL_DEFAULT,
 			0,
 			DXVA2_VideoDecoderRenderTarget,

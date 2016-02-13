@@ -165,6 +165,7 @@ private:
 	bool IsVideoInterlaced() override;
 	void GetOutputFormatList(OutputFormatList *pFormatList) const override;
 	DWORD GetVideoInfoControlFlags() const override;
+	D3DFORMAT GetDXVA2SurfaceFormat() const override;
 	HRESULT OnDXVA2DeviceHandleOpened() override;
 	HRESULT OnDXVA2Connect(IPin *pPin) override;
 	HRESULT OnDXVA2SurfaceCreated(IDirect3DSurface9 **ppSurface, int SurfaceCount) override;

@@ -127,6 +127,7 @@ protected:
 	virtual void GetOutputFormatList(OutputFormatList *pFormatList) const = 0;
 	virtual HRESULT Transform(IMediaSample *pIn) = 0;
 	virtual bool IsVideoInterlaced() { return false; }
+	virtual D3DFORMAT GetDXVA2SurfaceFormat() const { return D3DFMT_UNKNOWN; }
 	virtual DWORD GetVideoInfoControlFlags() const { return 0; }
 	virtual HRESULT OnDXVA2DeviceHandleOpened() { return S_OK; }
 	virtual HRESULT OnDXVA2Connect(IPin *pPin) { return S_OK; }

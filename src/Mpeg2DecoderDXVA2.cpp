@@ -34,12 +34,18 @@ static const GUID * const DecoderGuidList[] = {
 	&DXVA2_ModeMPEG2and1_VLD
 };
 
+static const D3DFORMAT SurfaceFormatList[] = {
+	D3DFMT_NV12,
+	D3DFMT_IMC3
+};
+
 
 CMpeg2DecoderDXVA2::CMpeg2DecoderDXVA2()
 	: m_pFilter(nullptr)
 	, m_pDeviceManager(nullptr)
 	, m_pDecoderService(nullptr)
 	, m_pVideoDecoder(nullptr)
+	, m_SurfaceFormat(D3DFMT_UNKNOWN)
 	, m_fDeviceLost(false)
 	, m_pSliceBuffer(nullptr)
 	, m_SliceBufferSize(0)
@@ -178,6 +184,11 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoderService(CTVTestVideoDecoder *pFilter)
 	}
 	m_pDecoderService = pDecoderService;
 
+	if (!FindDecoder(nullptr, &m_SurfaceFormat, SurfaceFormatList, _countof(SurfaceFormatList))) {
+		CloseDecoderService();
+		return E_FAIL;
+	}
+
 	return S_OK;
 }
 
@@ -190,6 +201,7 @@ void CMpeg2DecoderDXVA2::CloseDecoderService()
 	SafeRelease(m_pDecoderService);
 	SafeRelease(m_pDeviceManager);
 	m_pFilter = nullptr;
+	m_SurfaceFormat = D3DFMT_UNKNOWN;
 }
 
 HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int SurfaceCount)
@@ -205,49 +217,10 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 
 	HRESULT hr;
 
-	UINT Count;
-	GUID *pGuids;
-	hr = m_pDecoderService->GetDecoderDeviceGuids(&Count, &pGuids);
-	if (FAILED(hr)) {
-		DBG_ERROR(TEXT("GetDecoderDeviceGuids() failed (%x)"), hr);
-		return hr;
-	}
-
-	bool fFound = false;
 	GUID guidDecoder;
-	for (UINT i = 0; i < Count && !fFound; i++) {
-		for (int j = 0; j < _countof(DecoderGuidList); j++) {
-			if (pGuids[i] == *DecoderGuidList[j]) {
-				guidDecoder = pGuids[i];
-				fFound = true;
-				break;
-			}
-		}
-	}
-	::CoTaskMemFree(pGuids);
-	if (!fFound) {
+	if (!FindDecoder(&guidDecoder, nullptr, &m_SurfaceFormat, 1)) {
 		DBG_ERROR(TEXT("Decoder not found"));
-		return hr;
-	}
-
-	D3DFORMAT *pFormats;
-	hr = m_pDecoderService->GetDecoderRenderTargets(guidDecoder, &Count, &pFormats);
-	if (FAILED(hr)) {
-		DBG_ERROR(TEXT("GetDecoderRenderTargets() failed (%x)"), hr);
-		return hr;
-	}
-
-	fFound = false;
-	for (UINT i = 0; i < Count; i++) {
-		if (pFormats[i] == D3DFMT_NV12) {
-			fFound = true;
-			break;
-		}
-	}
-	::CoTaskMemFree(pFormats);
-	if (!fFound) {
-		DBG_ERROR(TEXT("Format not available"));
-		return hr;
+		return E_FAIL;
 	}
 
 	DXVA2_VideoDesc VideoDesc = {};
@@ -261,8 +234,9 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 	VideoDesc.SampleFormat.VideoLighting = DXVA2_VideoLighting_dim;
 	VideoDesc.SampleFormat.VideoPrimaries = DXVA2_VideoPrimaries_BT709;
 	VideoDesc.SampleFormat.VideoTransferFunction = DXVA2_VideoTransFunc_709;
-	VideoDesc.Format = D3DFMT_NV12;
+	VideoDesc.Format = m_SurfaceFormat;
 
+	UINT Count;
 	DXVA2_ConfigPictureDecode *pConfigs;
 	hr = m_pDecoderService->GetDecoderConfigurations(
 		guidDecoder, &VideoDesc, nullptr, &Count, &pConfigs);
@@ -375,6 +349,72 @@ void CMpeg2DecoderDXVA2::ResetDecoding()
 	m_PrevRefSurfaceIndex = -1;
 	m_ForwardRefSurfaceIndex = -1;
 	m_DecodeSampleIndex = -1;
+}
+
+bool CMpeg2DecoderDXVA2::FindDecoder(
+	GUID *pGuid, D3DFORMAT *pFormat, const D3DFORMAT *pFormatList, int FormatCount)
+{
+	if (!m_pDecoderService)
+		return false;
+
+	HRESULT hr;
+
+	UINT DeviceCount;
+	GUID *pGuids;
+	hr = m_pDecoderService->GetDecoderDeviceGuids(&DeviceCount, &pGuids);
+	if (FAILED(hr)) {
+		DBG_ERROR(TEXT("GetDecoderDeviceGuids() failed (%x)"), hr);
+		return false;
+	}
+
+	bool fFound = false;
+	for (UINT i = 0; i < DeviceCount && !fFound; i++) {
+		for (int j = 0; j < _countof(DecoderGuidList); j++) {
+			if (pGuids[i] == *DecoderGuidList[j]) {
+				int Format = FindRenderTarget(pGuids[i], pFormatList, FormatCount);
+				if (Format >= 0) {
+					fFound = true;
+					if (pGuid)
+						*pGuid = pGuids[i];
+					if (pFormat)
+						*pFormat = pFormatList[Format];
+					break;
+				}
+			}
+		}
+	}
+
+	::CoTaskMemFree(pGuids);
+
+	return fFound;
+}
+
+int CMpeg2DecoderDXVA2::FindRenderTarget(const GUID &guid, const D3DFORMAT *pFormatList, int FormatCount)
+{
+	if (!m_pDecoderService)
+		return -1;
+
+	UINT Count;
+	D3DFORMAT *pFormats;
+	HRESULT hr = m_pDecoderService->GetDecoderRenderTargets(guid, &Count, &pFormats);
+	if (FAILED(hr)) {
+		DBG_ERROR(TEXT("GetDecoderRenderTargets() failed (%x)"), hr);
+		return -1;
+	}
+
+	int Found = -1;
+	for (UINT i = 0; i < Count && Found < 0; i++) {
+		for (int j = 0; j < FormatCount; j++) {
+			if (pFormats[i] == pFormatList[j]) {
+				Found = j;
+				break;
+			}
+		}
+	}
+
+	::CoTaskMemFree(pFormats);
+
+	return Found;
 }
 
 HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)

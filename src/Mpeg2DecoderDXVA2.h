@@ -45,6 +45,7 @@ public:
 	HRESULT RecreateDecoder();
 	void ResetDecoding();
 	HRESULT DecodeFrame(IMediaSample **ppSample);
+	D3DFORMAT GetSurfaceFormat() const { return m_SurfaceFormat; }
 	bool IsDeviceLost() const { return m_fDeviceLost; }
 	const D3DADAPTER_IDENTIFIER9 &GetAdapterIdentifier() const { return m_AdapterIdentifier; }
 
@@ -61,6 +62,7 @@ private:
 	IDirect3DDeviceManager9 *m_pDeviceManager;
 	IDirectXVideoDecoderService *m_pDecoderService;
 	IDirectXVideoDecoder *m_pVideoDecoder;
+	D3DFORMAT m_SurfaceFormat;
 	bool m_fDeviceLost;
 	DXVA_PictureParameters m_PictureParams;
 	DXVA_SliceInfo m_SliceInfo[MAX_SLICE];
@@ -79,6 +81,9 @@ private:
 	SampleInfo m_Samples[3];
 	SampleInfo m_RefSamples[2];
 
+	bool FindDecoder(GUID *pGuid, D3DFORMAT *pFormat,
+					 const D3DFORMAT *pFormatList, int FormatCount);
+	int FindRenderTarget(const GUID &guid, const D3DFORMAT *pFormatList, int FormatCount);
 	HRESULT CommitBuffers();
 	void GetPictureParams(DXVA_PictureParameters *pParams);
 	void GetQmatrixData(DXVA_QmatrixData *pQmatrix);

@@ -461,6 +461,16 @@ bool CTVTestVideoDecoder::IsVideoInterlaced()
 	return (!GetEnableDeinterlace() && GetInterlacedFlag()) || m_fDXVAOutput;
 }
 
+D3DFORMAT CTVTestVideoDecoder::GetDXVA2SurfaceFormat() const
+{
+	CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
+
+	if (pDXVADecoder)
+		return pDXVADecoder->GetSurfaceFormat();
+
+	return __super::GetDXVA2SurfaceFormat();
+}
+
 HRESULT CTVTestVideoDecoder::OnDXVA2DeviceHandleOpened()
 {
 	CMpeg2DecoderDXVA2 *pDXVADecoder = dynamic_cast<CMpeg2DecoderDXVA2 *>(m_pDecoder);
@@ -741,7 +751,7 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 		D3DSURFACE_DESC desc;
 		hr = DstBuffer.m_pSurface->GetDesc(&desc);
 		if (SUCCEEDED(hr)) {
-			if (desc.Format != D3DFMT_NV12
+			if ((desc.Format != D3DFMT_NV12 && desc.Format != D3DFMT_IMC3)
 					|| (int)desc.Width < SrcBuffer.m_Width
 					|| (int)desc.Height < SrcBuffer.m_Height) {
 				hr = E_FAIL;
@@ -749,11 +759,22 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(CFrameBuffer *pFrameBuffer)
 				D3DLOCKED_RECT rect;
 				hr = DstBuffer.m_pSurface->LockRect(&rect, nullptr, D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
 				if (SUCCEEDED(hr)) {
-					PixelCopyI420ToNV12(
-						SrcBuffer.m_Width, SrcBuffer.m_Height,
-						(uint8_t*)rect.pBits, (uint8_t*)rect.pBits + desc.Height * rect.Pitch, rect.Pitch,
-						SrcBuffer.m_Buffer[0], SrcBuffer.m_Buffer[1], SrcBuffer.m_Buffer[2],
-						SrcBuffer.m_PitchY, SrcBuffer.m_PitchC);
+					if (desc.Format == D3DFMT_NV12) {
+						PixelCopyI420ToNV12(
+							SrcBuffer.m_Width, SrcBuffer.m_Height,
+							(uint8_t*)rect.pBits, (uint8_t*)rect.pBits + desc.Height * rect.Pitch, rect.Pitch,
+							SrcBuffer.m_Buffer[0], SrcBuffer.m_Buffer[1], SrcBuffer.m_Buffer[2],
+							SrcBuffer.m_PitchY, SrcBuffer.m_PitchC);
+					} else if (desc.Format == D3DFMT_IMC3) {
+						PixelCopyI420ToI420(
+							SrcBuffer.m_Width, SrcBuffer.m_Height,
+							(uint8_t*)rect.pBits,
+							(uint8_t*)rect.pBits + ((desc.Height + 15) & ~15) * rect.Pitch,
+							(uint8_t*)rect.pBits + (((desc.Height + (desc.Height / 2)) + 15) & ~15) * rect.Pitch,
+							rect.Pitch, rect.Pitch,
+							SrcBuffer.m_Buffer[0], SrcBuffer.m_Buffer[1], SrcBuffer.m_Buffer[2],
+							SrcBuffer.m_PitchY, SrcBuffer.m_PitchC);
+					}
 					DstBuffer.m_pSurface->UnlockRect();
 					hr = Deliver(pOutSample, &DstBuffer);
 				}
