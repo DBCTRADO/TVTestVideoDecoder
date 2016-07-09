@@ -19,6 +19,13 @@
 #pragma once
 
 
+#if defined(_WIN64)
+#include <pshpack8.h>
+#else
+#include <pshpack4.h>
+#endif
+
+
 #define TVTVIDEODEC_FILTER_NAME L"TVTest DTV Video Decoder"
 
 enum TVTVIDEODEC_DeinterlaceMethod : int
@@ -206,3 +213,6 @@ struct TVTestVideoDecoderInfo
 
 TVTVIDEODEC_EXPORT BOOL WINAPI TVTestVideoDecoder_GetInfo(TVTestVideoDecoderInfo *pInfo);
 TVTVIDEODEC_EXPORT HRESULT WINAPI TVTestVideoDecoder_CreateInstance(REFIID riid, void **ppObject);
+
+
+#include <poppack.h>
