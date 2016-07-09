@@ -78,13 +78,22 @@
     <ClInclude Include="TVTestVideoDecoderStat.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DXVA2Allocator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Mpeg2DecoderDXVA2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DXVA2Allocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DeinterlacerSet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoFrameDecoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameCapture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -134,10 +143,19 @@
     <ClCompile Include="TVTestVideoDecoderStat.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Mpeg2DecoderDXVA2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="DXVA2Allocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Mpeg2DecoderDXVA2.cpp">
+    <ClCompile Include="DeinterlacerSet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VideoFrameDecoder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FrameCapture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

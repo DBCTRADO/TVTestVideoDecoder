@@ -20,6 +20,7 @@
 #include "TVTestVideoDecoder.h"
 #include "TVTestVideoDecoderProp.h"
 #include "TVTestVideoDecoderStat.h"
+#include "VideoFrameDecoder.h"
 #include "Util.h"
 #include "MediaTypes.h"
 #include "Version.h"
@@ -170,23 +171,31 @@ TVTVIDEODEC_EXPORT BOOL WINAPI TVTestVideoDecoder_GetInfo(TVTestVideoDecoderInfo
 	return TRUE;
 }
 
-TVTVIDEODEC_EXPORT HRESULT WINAPI TVTestVideoDecoder_CreateInstance(ITVTestVideoDecoder **ppDecoder)
+TVTVIDEODEC_EXPORT HRESULT WINAPI TVTestVideoDecoder_CreateInstance(REFIID riid, void **ppObject)
 {
-	CheckPointer(ppDecoder, E_POINTER);
+	CheckPointer(ppObject, E_POINTER);
 
 	HRESULT hr = S_OK;
+	CUnknown *pObject;
 
-	*ppDecoder = DNew_nothrow CTVTestVideoDecoder(nullptr, &hr, true);
+	if (riid == __uuidof(ITVTestVideoDecoder)) {
+		pObject = DNew_nothrow CTVTestVideoDecoder(nullptr, &hr, true);
+	} else if (riid == __uuidof(ITVTestVideoFrameDecoder)) {
+		pObject = CTVTestVideoFrameDecoder::CreateInstance(nullptr, &hr);
+	} else {
+		*ppObject = nullptr;
+		return E_NOINTERFACE;
+	}
 
-	if (!*ppDecoder)
+	if (!pObject)
 		return E_OUTOFMEMORY;
 
 	if (FAILED(hr)) {
-		SafeDelete(*ppDecoder);
+		delete pObject;
 		return hr;
 	}
 
-	(*ppDecoder)->AddRef();
+	pObject->NonDelegatingQueryInterface(riid, ppObject);
 
 	return S_OK;
 }

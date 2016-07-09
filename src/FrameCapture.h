@@ -16,9 +16,31 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define TVTVIDEODEC_VERSION_TEXT  "0.3.0"
+#pragma once
 
-#define TVTVIDEODEC_VERSION_MAJOR  0
-#define TVTVIDEODEC_VERSION_MINOR  3
-#define TVTVIDEODEC_VERSION_REV    0
-#define TVTVIDEODEC_VERSION_STATUS "beta"
+
+#include "ITVTestVideoDecoder.h"
+#include "Mpeg2Decoder.h"
+#include "FrameBuffer.h"
+#include "PixelFormatConvert.h"
+
+
+class CFrameCapture
+{
+public:
+	CFrameCapture();
+	~CFrameCapture();
+
+	HRESULT SetFrameCapture(ITVTestVideoDecoderFrameCapture *pFrameCapture, REFGUID Subtype);
+	void UnsetFrameCapture();
+	bool IsEnabled() const;
+	bool IsCaptureSubtypeSupported(REFGUID SrcSubtype, REFGUID DstSubtype) const;
+	HRESULT FrameCaptureCallback(const CMpeg2Decoder *pDecoder, const CFrameBuffer *pFrameBuffer);
+
+private:
+	ITVTestVideoDecoderFrameCapture *m_pFrameCapture;
+	GUID m_FrameCaptureSubtype;
+	YUVToRGBConverter m_YUVToRGBConverter;
+	uint8_t m_MatrixCoefficients;
+	CFrameBuffer m_RGBFrameBuffer;
+};

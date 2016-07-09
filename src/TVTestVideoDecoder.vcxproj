@@ -195,10 +195,12 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="Copy.h" />
     <ClInclude Include="Deinterlace.h" />
+    <ClInclude Include="DeinterlacerSet.h" />
     <ClInclude Include="Deinterlace_DXVA.h" />
     <ClInclude Include="Deinterlace_Yadif.h" />
     <ClInclude Include="DXVA2Allocator.h" />
     <ClInclude Include="FrameBuffer.h" />
+    <ClInclude Include="FrameCapture.h" />
     <ClInclude Include="ISpecifyPropertyPages2.h" />
     <ClInclude Include="ITVTestVideoDecoder.h" />
     <ClInclude Include="MediaTypes.h" />
@@ -212,17 +214,20 @@
     <ClInclude Include="TVTestVideoDecoderStat.h" />
     <ClInclude Include="Util.h" />
     <ClInclude Include="Version.h" />
+    <ClInclude Include="VideoFrameDecoder.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Acceleration.cpp" />
     <ClCompile Include="BaseVideoFilter.cpp" />
     <ClCompile Include="ColorAdjustment.cpp" />
     <ClCompile Include="Deinterlace.cpp" />
+    <ClCompile Include="DeinterlacerSet.cpp" />
     <ClCompile Include="Deinterlace_DXVA.cpp" />
     <ClCompile Include="Deinterlace_Yadif.cpp" />
     <ClCompile Include="DllMain.cpp" />
     <ClCompile Include="DXVA2Allocator.cpp" />
     <ClCompile Include="FrameBuffer.cpp" />
+    <ClCompile Include="FrameCapture.cpp" />
     <ClCompile Include="Mpeg2Decoder.cpp" />
     <ClCompile Include="Mpeg2DecoderDXVA2.cpp" />
     <ClCompile Include="PixelFormatConvert.cpp" />
@@ -234,6 +239,7 @@
     <ClCompile Include="TVTestVideoDecoderProp.cpp" />
     <ClCompile Include="TVTestVideoDecoderStat.cpp" />
     <ClCompile Include="Util.cpp" />
+    <ClCompile Include="VideoFrameDecoder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="TVTestVideoDecoder.rc" />

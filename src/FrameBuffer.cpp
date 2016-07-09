@@ -19,7 +19,6 @@
 #include "stdafx.h"
 #include <malloc.h>
 #include "FrameBuffer.h"
-#include "MediaTypes.h"
 
 
 static inline int RowBytes(int Width) { return (Width + 31) & ~31; }
@@ -48,37 +47,54 @@ CFrameBuffer::~CFrameBuffer()
 	Free();
 }
 
-bool CFrameBuffer::Allocate(int Width, int Height)
+bool CFrameBuffer::Allocate(int Width, int Height, REFGUID Subtype)
 {
 	if (Width <= 0 || Height <= 0 || (Width & 1) || (Height & 1))
 		return false;
-	if (Width == m_Width && Height == m_Height)
+	if (Width == m_Width && Height == m_Height && Subtype == m_Subtype)
 		return true;
 
 	Free();
 
-	const int PitchY = RowBytes(Width);
-	const int PitchC = RowBytes(Width / 2);
-	const int SizeY = PitchY * Height;
-	const int SizeC = PitchC * (Height / 2);
+	if (Subtype == MEDIASUBTYPE_I420 || Subtype == MEDIASUBTYPE_IYUV) {
+		const int PitchY = RowBytes(Width);
+		const int PitchC = RowBytes(Width / 2);
+		const int SizeY = PitchY * Height;
+		const int SizeC = PitchC * (Height / 2);
 
-	m_pBuffer = (uint8_t*)::_aligned_malloc(SizeY + SizeC * 2, 32);
-	if (!m_pBuffer)
+		m_pBuffer = (uint8_t*)::_aligned_malloc(SizeY + SizeC * 2, 32);
+		if (!m_pBuffer)
+			return false;
+
+		m_PitchY = PitchY;
+		m_PitchC = PitchC;
+
+		uint8_t *p = m_pBuffer;
+		m_Buffer[0] = p;
+		p += SizeY;
+		m_Buffer[1] = p;
+		p += SizeC;
+		m_Buffer[2] = p;
+	} else if (Subtype == MEDIASUBTYPE_RGB24 || Subtype == MEDIASUBTYPE_RGB32) {
+		const int Pitch = RowBytes(Width * (Subtype == MEDIASUBTYPE_RGB24 ? 3 : 4));
+
+		m_pBuffer = (uint8_t*)::_aligned_malloc(Pitch * Height, 32);
+		if (!m_pBuffer)
+			return false;
+
+		m_PitchY = Pitch;
+		m_PitchC = Pitch;
+
+		m_Buffer[0] = m_pBuffer;
+		m_Buffer[1] = m_pBuffer;
+		m_Buffer[2] = m_pBuffer;
+	} else {
 		return false;
+	}
 
 	m_Width = Width;
 	m_Height = Height;
-	m_PitchY = PitchY;
-	m_PitchC = PitchC;
-
-	uint8_t *p = m_pBuffer;
-	m_Buffer[0] = p;
-	p += SizeY;
-	m_Buffer[1] = p;
-	p += SizeC;
-	m_Buffer[2] = p;
-
-	m_Subtype = MEDIASUBTYPE_I420;
+	m_Subtype = Subtype;
 
 	return true;
 }

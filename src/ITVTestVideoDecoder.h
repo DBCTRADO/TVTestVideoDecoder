@@ -94,14 +94,37 @@ struct TVTVIDEODEC_Statistics
 #define TVTVIDEODEC_FRAME_TYPE_P             0x00000020
 #define TVTVIDEODEC_FRAME_TYPE_B             0x00000040
 
+struct TVTVIDEODEC_ColorDescription
+{
+	BYTE Flags;
+	BYTE ColorPrimaries;
+	BYTE MatrixCoefficients;
+	BYTE TransferCharacteristics;
+};
+
+#define TVTVIDEODEC_COLOR_DESCRIPTION_PRESENT 0x01
+
+struct TVTVIDEODEC_FrameInfo
+{
+	int Width;
+	int Height;
+	int AspectX;
+	int AspectY;
+	GUID Subtype;
+	const BYTE * const *Buffer;
+	const int *Pitch;
+	DWORD Flags;
+	TVTVIDEODEC_ColorDescription ColorDescription;
+};
+
+/* Frame capture interface */
 MIDL_INTERFACE("803267E1-0A79-4F9D-E167-3280790A9D4F")
 ITVTestVideoDecoderFrameCapture : public IUnknown
 {
-	STDMETHOD(OnFrame)(
-		int Width, int Height, int AspectX, int AspectY,
-		REFGUID subtype, const BYTE * const *Buffer, const int *Pitch, DWORD Flags) PURE;
+	STDMETHOD(OnFrame)(const TVTVIDEODEC_FrameInfo *pFrameInfo) PURE;
 };
 
+/* DirectShow decoder interface */
 MIDL_INTERFACE("5BF96108-6F7E-4D89-0861-F95B7E6F894D")
 ITVTestVideoDecoder : public IUnknown
 {
@@ -138,6 +161,27 @@ ITVTestVideoDecoder : public IUnknown
 	STDMETHOD(SetFrameCapture)(ITVTestVideoDecoderFrameCapture *pFrameCapture) PURE;
 };
 
+/* Stand-alone decoder interface */
+MIDL_INTERFACE("B08074A7-7033-4ABA-AC28-972F55543736")
+ITVTestVideoFrameDecoder : public IUnknown
+{
+	STDMETHOD(Open)(REFGUID VideoSubtype) PURE;
+	STDMETHOD(Close)() PURE;
+
+	STDMETHOD(InputStream)(const void *pData, SIZE_T Size) PURE;
+
+	STDMETHOD(SetFrameCapture)(ITVTestVideoDecoderFrameCapture *pFrameCapture, REFGUID Subtype) PURE;
+
+	STDMETHOD(SetDeinterlaceMethod)(TVTVIDEODEC_DeinterlaceMethod Method) PURE;
+	STDMETHOD_(TVTVIDEODEC_DeinterlaceMethod, GetDeinterlaceMethod)() PURE;
+	STDMETHOD(SetWaitForKeyFrame)(BOOL fWait) PURE;
+	STDMETHOD_(BOOL, GetWaitForKeyFrame)() PURE;
+	STDMETHOD(SetSkipBFrames)(BOOL fSkip) PURE;
+	STDMETHOD_(BOOL, GetSkipBFrames)() PURE;
+	STDMETHOD(SetNumThreads)(int NumThreads) PURE;
+	STDMETHOD_(int, GetNumThreads)() PURE;
+};
+
 struct TVTestVideoDecoderInfo
 {
 	DWORD HostVersion;
@@ -152,7 +196,7 @@ struct TVTestVideoDecoderInfo
 #define TVTVIDEODEC_VERSION_GET_REV(ver)   ((ver) & 0xfff)
 
 #define TVTVIDEODEC_HOST_VERSION      TVTVIDEODEC_VERSION_(0, 0, 0)
-#define TVTVIDEODEC_INTERFACE_VERSION TVTVIDEODEC_VERSION_(0, 1, 0)
+#define TVTVIDEODEC_INTERFACE_VERSION TVTVIDEODEC_VERSION_(0, 2, 0)
 
 #ifdef TVTVIDEODEC_IMPL
 #define TVTVIDEODEC_EXPORT extern "C" __declspec(dllexport)
@@ -161,4 +205,4 @@ struct TVTestVideoDecoderInfo
 #endif
 
 TVTVIDEODEC_EXPORT BOOL WINAPI TVTestVideoDecoder_GetInfo(TVTestVideoDecoderInfo *pInfo);
-TVTVIDEODEC_EXPORT HRESULT WINAPI TVTestVideoDecoder_CreateInstance(ITVTestVideoDecoder **ppDecoder);
+TVTVIDEODEC_EXPORT HRESULT WINAPI TVTestVideoDecoder_CreateInstance(REFIID riid, void **ppObject);

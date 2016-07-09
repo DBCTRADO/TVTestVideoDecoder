@@ -20,6 +20,7 @@
 
 
 #include "ITVTestVideoDecoder.h"
+#include "MediaTypes.h"
 
 
 enum : uint32_t {
@@ -54,7 +55,7 @@ public:
 
 	CFrameBuffer();
 	~CFrameBuffer();
-	bool Allocate(int Width, int Height);
+	bool Allocate(int Width, int Height, REFGUID Subtype = MEDIASUBTYPE_I420);
 	void Free();
 	bool CopyAttributesFrom(const CFrameBuffer *pBuffer);
 	bool CopyReferenceTo(CFrameBuffer *pBuffer) const;

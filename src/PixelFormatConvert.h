@@ -19,6 +19,9 @@
 #pragma once
 
 
+#include "FrameBuffer.h"
+
+
 bool PixelCopyI420ToI420(
 	int Width, int Height,
 	uint8_t * restrict pDstY, uint8_t * restrict pDstU, uint8_t * restrict pDstV,
@@ -43,3 +46,54 @@ bool PixelCopyRGBToRGB(
 	int Width, int Height,
 	uint8_t * restrict pDst, ptrdiff_t DstPitch, int DstBPP,
 	const uint8_t * restrict pSrc, ptrdiff_t SrcPitch, int SrcBPP);
+
+bool UpsampleI420pToI422(
+	int Width, int Height,
+	uint8_t * restrict pDst, ptrdiff_t DstPitch,
+	const uint8_t * restrict pSrc, ptrdiff_t SrcPitch);
+bool UpsampleI420iToI422(
+	int Width, int Height,
+	uint8_t * restrict pDst, ptrdiff_t DstPitch,
+	const uint8_t * restrict pSrc, ptrdiff_t SrcPitch);
+
+struct YUVToRGBConvertParameters
+{
+	int YOffset;
+	int YGain;
+	int RV;
+	int GU;
+	int GV;
+	int BU;
+};
+
+struct YUVToRGBConvertTable
+{
+	uint8_t Table[1024];
+};
+
+void SetupYUVToRGBConvertParametersMPEG2(
+	YUVToRGBConvertParameters *pParams, uint8_t MatrixCoefficients, bool fStraight = false);
+void SetupYUVToRGBConvertTable(
+	YUVToRGBConvertTable *pTable, const YUVToRGBConvertParameters *pParams);
+
+bool PixelCopyI422ToRGB(
+	int Width, int Height,
+	uint8_t * restrict pDst, int DstPlanes, ptrdiff_t DstPitch,
+	const uint8_t * restrict pSrcY, const uint8_t * restrict pSrcU, const uint8_t * restrict pSrcV,
+	ptrdiff_t SrcPitchY, ptrdiff_t SrcPitchC,
+	const YUVToRGBConvertParameters &Params, const YUVToRGBConvertTable &Table);
+
+class YUVToRGBConverter
+{
+public:
+	YUVToRGBConverter();
+	~YUVToRGBConverter();
+	void InitializeMPEG2(uint8_t MatrixCoefficients, bool fStraight = false);
+	bool Convert(CFrameBuffer *pDstFrameBuffer, const CFrameBuffer *pSrcFrameBuffer, bool fProgressive);
+
+private:
+	YUVToRGBConvertParameters m_Params;
+	YUVToRGBConvertTable m_Table;
+	uint8_t *m_pBuffer;
+	size_t m_BufferSize;
+};

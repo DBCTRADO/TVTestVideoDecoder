@@ -25,10 +25,10 @@
 #include "ISpecifyPropertyPages2.h"
 #include "Mpeg2Decoder.h"
 #include "FrameBuffer.h"
-#include "Deinterlace.h"
-#include "Deinterlace_Yadif.h"
+#include "DeinterlacerSet.h"
 #include "Deinterlace_DXVA.h"
 #include "ColorAdjustment.h"
+#include "FrameCapture.h"
 
 
 #define REGISTRY_PARENT_KEY_NAME L"Software\\DBCTRADO"
@@ -38,6 +38,7 @@ class CTVTestVideoDecoder
 	: public CBaseVideoFilter
 	, public ITVTestVideoDecoder
 	, public ISpecifyPropertyPages2
+	, protected CDeinterlacerSet
 {
 	friend class CMpeg2DecoderDXVA2;
 
@@ -126,13 +127,6 @@ private:
 	CCritSec m_csStats;
 	TVTVIDEODEC_Statistics m_Statistics;
 
-	CDeinterlacer *m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_LAST + 1];
-	CDeinterlacer_Weave m_Deinterlacer_Weave;
-	CDeinterlacer_Blend m_Deinterlacer_Blend;
-	CDeinterlacer_Bob m_Deinterlacer_Bob;
-	CDeinterlacer_ELA m_Deinterlacer_ELA;
-	CDeinterlacer_Yadif m_Deinterlacer_Yadif;
-	CDeinterlacer_Yadif m_Deinterlacer_YadifBob;
 	CDeinterlacer_DXVA m_Deinterlacer_DXVA;
 
 	CColorAdjustment m_ColorAdjustment;
@@ -151,7 +145,7 @@ private:
 	int m_Saturation;
 	int m_NumThreads;
 	bool m_fCrop1088To1080;
-	ITVTestVideoDecoderFrameCapture *m_pFrameCapture;
+	CFrameCapture m_FrameCapture;
 
 	HRESULT DeliverFrame(CFrameBuffer *pFrameBuffer);
 	HRESULT Deliver(IMediaSample *pOutSample, CFrameBuffer *pFrameBuffer);
@@ -159,7 +153,6 @@ private:
 	void SetFrameStatus();
 	void SetTypeSpecificFlags(IMediaSample *pSample);
 	HRESULT InitDecode(bool fPutSequenceHeader);
-	void InitDeinterlacers();
 
 	HRESULT Transform(IMediaSample *pIn) override;
 	bool IsVideoInterlaced() override;

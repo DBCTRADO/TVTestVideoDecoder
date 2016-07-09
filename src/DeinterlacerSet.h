@@ -16,9 +16,26 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define TVTVIDEODEC_VERSION_TEXT  "0.3.0"
+#pragma once
 
-#define TVTVIDEODEC_VERSION_MAJOR  0
-#define TVTVIDEODEC_VERSION_MINOR  3
-#define TVTVIDEODEC_VERSION_REV    0
-#define TVTVIDEODEC_VERSION_STATUS "beta"
+
+#include "ITVTestVideoDecoder.h"
+#include "Deinterlace.h"
+#include "Deinterlace_Yadif.h"
+
+
+class CDeinterlacerSet
+{
+public:
+	CDeinterlacerSet();
+	void InitDeinterlacers();
+
+protected:
+	CDeinterlacer *m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_LAST + 1];
+	CDeinterlacer_Weave m_Deinterlacer_Weave;
+	CDeinterlacer_Blend m_Deinterlacer_Blend;
+	CDeinterlacer_Bob m_Deinterlacer_Bob;
+	CDeinterlacer_ELA m_Deinterlacer_ELA;
+	CDeinterlacer_Yadif m_Deinterlacer_Yadif;
+	CDeinterlacer_Yadif m_Deinterlacer_YadifBob;
+};

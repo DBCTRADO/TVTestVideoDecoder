@@ -78,9 +78,6 @@ CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLo
 	, m_fLocalInstance(fLocal)
 	, m_Statistics()
 
-	, m_Deinterlacer_Yadif(false)
-	, m_Deinterlacer_YadifBob(true)
-
 	, m_fDXVA2Decode(false)
 	, m_fEnableDeinterlace(true)
 	, m_DeinterlaceMethod(TVTVIDEODEC_DEINTERLACE_BLEND)
@@ -94,15 +91,7 @@ CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLo
 	, m_Saturation(0)
 	, m_NumThreads(0)
 	, m_fCrop1088To1080(true)
-	, m_pFrameCapture(nullptr)
 {
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_WEAVE    ] = &m_Deinterlacer_Weave;
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_BLEND    ] = &m_Deinterlacer_Blend;
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_BOB      ] = &m_Deinterlacer_Bob;
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_ELA      ] = &m_Deinterlacer_ELA;
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_YADIF    ] = &m_Deinterlacer_Yadif;
-	m_Deinterlacers[TVTVIDEODEC_DEINTERLACE_YADIF_BOB] = &m_Deinterlacer_YadifBob;
-
 	if (FAILED(*phr)) {
 		return;
 	}
@@ -122,7 +111,6 @@ CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLo
 
 CTVTestVideoDecoder::~CTVTestVideoDecoder()
 {
-	SafeRelease(m_pFrameCapture);
 	SafeDelete(m_pDecoder);
 }
 
@@ -258,13 +246,6 @@ HRESULT CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 	InitDeinterlacers();
 
 	return S_OK;
-}
-
-void CTVTestVideoDecoder::InitDeinterlacers()
-{
-	for (int i = 0; i < _countof(m_Deinterlacers); i++) {
-		m_Deinterlacers[i]->Initialize();
-	}
 }
 
 void CTVTestVideoDecoder::SetFrameStatus()
@@ -846,38 +827,7 @@ HRESULT CTVTestVideoDecoder::Deliver(IMediaSample *pOutSample, CFrameBuffer *pFr
 	HRESULT hr;
 
 	if (!m_fDXVAOutput) {
-		if (m_pFrameCapture) {
-			const BYTE *Buffer[3];
-			int Pitch[3];
-
-			Buffer[0] = pFrameBuffer->m_Buffer[0];
-			Buffer[1] = pFrameBuffer->m_Buffer[1];
-			Buffer[2] = pFrameBuffer->m_Buffer[2];
-			Pitch[0] = pFrameBuffer->m_PitchY;
-			Pitch[1] = pFrameBuffer->m_PitchC;
-			Pitch[2] = pFrameBuffer->m_PitchC;
-
-			DWORD Flags = 0;
-			if (pFrameBuffer->m_Flags & FRAME_FLAG_TOP_FIELD_FIRST)
-				Flags |= TVTVIDEODEC_FRAME_TOP_FIELD_FIRST;
-			if (pFrameBuffer->m_Flags & FRAME_FLAG_REPEAT_FIRST_FIELD)
-				Flags |= TVTVIDEODEC_FRAME_REPEAT_FIRST_FIELD;
-			if (pFrameBuffer->m_Flags & FRAME_FLAG_PROGRESSIVE_FRAME)
-				Flags |= TVTVIDEODEC_FRAME_PROGRESSIVE;
-			if (pFrameBuffer->m_Deinterlace == TVTVIDEODEC_DEINTERLACE_WEAVE)
-				Flags |= TVTVIDEODEC_FRAME_WEAVE;
-			if (pFrameBuffer->m_Flags & FRAME_FLAG_I_FRAME)
-				Flags |= TVTVIDEODEC_FRAME_TYPE_I;
-			if (pFrameBuffer->m_Flags & FRAME_FLAG_P_FRAME)
-				Flags |= TVTVIDEODEC_FRAME_TYPE_P;
-			if (pFrameBuffer->m_Flags & FRAME_FLAG_B_FRAME)
-				Flags |= TVTVIDEODEC_FRAME_TYPE_B;
-
-			m_pFrameCapture->OnFrame(
-				pFrameBuffer->m_Width, pFrameBuffer->m_Height,
-				pFrameBuffer->m_AspectX, pFrameBuffer->m_AspectY,
-				pFrameBuffer->m_Subtype, Buffer, Pitch, Flags);
-		}
+		m_FrameCapture.FrameCaptureCallback(m_pDecoder, pFrameBuffer);
 
 		if (m_ColorAdjustment.IsEffective()) {
 			if (pFrameBuffer->m_Subtype == MEDIASUBTYPE_I420) {
@@ -992,7 +942,7 @@ HRESULT CTVTestVideoDecoder::SetupOutputFrameBuffer(
 		if (!pDeinterlacer->IsRetainFrame()
 				&& pDeinterlacer->IsFormatSupported(pFrameBuffer->m_Subtype, mt.subtype)
 				&& !m_ColorAdjustment.IsEffective()
-				&& !m_pFrameCapture) {
+				&& !m_FrameCapture.IsEnabled()) {
 			BITMAPINFOHEADER bmihOut;
 			BYTE *pOutData;
 
@@ -1493,15 +1443,7 @@ STDMETHODIMP CTVTestVideoDecoder::SetFrameCapture(ITVTestVideoDecoderFrameCaptur
 {
 	CAutoLock Lock(&m_csReceive);
 
-	if (m_pFrameCapture) {
-		m_pFrameCapture->Release();
-	}
-	m_pFrameCapture = pFrameCapture;
-	if (m_pFrameCapture) {
-		m_pFrameCapture->AddRef();
-	}
-
-	return S_OK;
+	return m_FrameCapture.SetFrameCapture(pFrameCapture, MEDIASUBTYPE_I420);
 }
 
 
