@@ -22,7 +22,7 @@
 #include "ITVTestVideoDecoder.h"
 
 
-class __declspec(uuid("8D11F434-B4DF-458B-34F4-118DDFB48B45")) CTVTestVideoDecoderProp
+class __declspec(uuid("9AAE9F7C-6B57-4399-A914-605559F1686A")) CTVTestVideoDecoderProp
 	: public CBasePropertyPage
 {
 public:

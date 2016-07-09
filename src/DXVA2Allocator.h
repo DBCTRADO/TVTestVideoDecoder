@@ -53,7 +53,7 @@ private:
 	int m_SurfaceHeight;
 };
 
-MIDL_INTERFACE("A332A32D-C039-4CA9-2DA3-32A339C0A94C")
+MIDL_INTERFACE("65AB01B7-B3B4-4667-9C21-01B4061D88DD")
 IDXVA2MediaSample : public IUnknown
 {
 	STDMETHOD(SetSurface)(DWORD SurfaceID, IDirect3DSurface9 *pSurface) PURE;

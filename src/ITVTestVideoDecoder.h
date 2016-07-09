@@ -118,14 +118,14 @@ struct TVTVIDEODEC_FrameInfo
 };
 
 /* Frame capture interface */
-MIDL_INTERFACE("803267E1-0A79-4F9D-E167-3280790A9D4F")
+MIDL_INTERFACE("37669070-5574-44DA-BF20-A84A959990B5")
 ITVTestVideoDecoderFrameCapture : public IUnknown
 {
 	STDMETHOD(OnFrame)(const TVTVIDEODEC_FrameInfo *pFrameInfo) PURE;
 };
 
 /* DirectShow decoder interface */
-MIDL_INTERFACE("5BF96108-6F7E-4D89-0861-F95B7E6F894D")
+MIDL_INTERFACE("AE0BF9FF-EBCE-4412-9EFC-C6EE86B20855")
 ITVTestVideoDecoder : public IUnknown
 {
 	STDMETHOD(SetEnableDeinterlace)(BOOL fEnable) PURE;
