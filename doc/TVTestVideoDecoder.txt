@@ -15,6 +15,17 @@
   CAS 処理は実装されていないため、一般のテレビ放送の視聴に用いることはできない。
 
 
+◆ 注意事項
+
+  インターフェースの GUID が変更されたため、0.3.0 より前のバージョンをインストー
+  ルしていて 0.3.0 かそれより後のバージョンに更新する際には、一度前バージョンで
+  アンインストールを行い、ファイルの更新後に改めてインストールし直す必要がある。
+
+  このデコーダはまだ開発途上にあるので、インターフェースが頻繁に変更される可能
+  性がある。そのためインストールを行わないで利用する場合は、TVTest と
+  ITVTestVideoDecoder.h の整合をとらなければ正常に動作しない。
+
+
 ◆ 試験環境
 
   ・OS
@@ -62,10 +73,6 @@
   インストールを行った場合においても、TVTest のフォルダに TVTestVideoDecoder.ax
   が配置されていればそちらが優先して利用される。
 
-  このデコーダはまだ開発途上にあるので、インターフェースが頻繁に変更される可能
-  性がある。そのためインストールを行わないで利用する場合は、TVTest と
-  ITVTestVideoDecoder.h の整合をとらなければ正常に動作しない。
-
   TVTest のメニューの「フィルタのプロバティ」から「映像デコーダ」を選択すると、
   設定を行うことができる。
 
@@ -102,6 +109,112 @@
   ・スレッド数
     デコードを行うスレッド数を指定する。
     この設定はソフトウェアによるデコード時のみ有効である。
+
+
+◆ デコーダ・インターフェースの利用
+
+  TVTestVideoDecoder.ax では以下の2種類のデコーダ・インターフェースを提供する。
+
+  ・ITVTestVideoDecoder
+      DirectShow フィルタ・デコーダ
+
+  ・ITVTestVideoFrameDecoder
+      単独デコーダ
+
+  これらのインターフェースは、ITVTestVideoDecoder.h で定義されている。
+  いずれのデコーダも、TVTestVideoDecoder_CreateInstance 関数を呼び出しインスタ
+  ンスを作成して利用する。
+
+  ITVTestVideoDecoder は、QueryInterface によって IBaseFilter を取得し
+  DirectShow フィルタとして利用する。
+
+  ITVTestVideoFrameDecoder からは、ITVTestVideoDecoderFrameCapture を実装するこ
+  とにより、デコードされた画像を取得できる。
+  ITVTestVideoFrameDecoder の利用の流れを以下に示す。
+  なお、エラー処理は省略している。
+
+    // デコードされたフレームを取得するクラスを実装する
+    class CMyFrameCapture : public ITVTestVideoDecoderFrameCapture
+    {
+      LONG m_RefCount = 0;
+
+    public:
+      // IUnknown を実装する
+      STDMETHODIMP_(ULONG) AddRef() override
+      {
+        return InterlockedIncrement(&m_RefCount);
+      }
+      STDMETHODIMP_(ULONG) Release() override
+      {
+        LONG Count = InterlockedDecrement(&m_RefCount);
+        if (Count == 0) delete this;
+        return Count;
+      }
+      STDMETHODIMP QueryInterface(REFIID riid, void **ppvObject) override
+      {
+        if (riid == __uuidof(ITVTestVideoDecoderFrameCapture)) {
+          *ppvObject = static_cast<ITVTestVideoDecoderFrameCapture*>(this);
+        } else if (riid == IID_IUnknown) {
+          *ppvObject = static_cast<IUnknown*>(this);
+        } else {
+          *ppvObject = nullptr;
+          return E_NOINTERFACE;
+        }
+        AddRef();
+        return S_OK;
+      }
+
+      // フレーム取得関数を実装する
+      STDMETHODIMP OnFrame(const TVTVIDEODEC_FrameInfo *pFrameInfo) override
+      {
+        if (pFrameInfo->Subtype == MEDIASUBTYPE_RGB32) {
+          // RGB 32-bit
+          // pFrameInfo->Buffer[0][(y * pFrameInfo->Pitch[0]) + (x * 4) + 0] == B
+          // pFrameInfo->Buffer[0][(y * pFrameInfo->Pitch[0]) + (x * 4) + 1] == G
+          // pFrameInfo->Buffer[0][(y * pFrameInfo->Pitch[0]) + (x * 4) + 2] == R
+        } else if (pFrameInfo->Subtype == MEDIASUBTYPE_IYUV) {
+          // YUV 4:2:0
+          // pFrameInfo->Buffer[0][(y * pFrameInfo->Pitch[0]) + x]             == Y
+          // pFrameInfo->Buffer[1][((y / 2) * pFrameInfo->Pitch[1]) + (x / 2)] == U
+          // pFrameInfo->Buffer[2][((y / 2) * pFrameInfo->Pitch[2]) + (x / 2)] == V
+        }
+        // フレーム取得関数がエラーを返すと、そこでデコードが中止される
+        return S_OK;
+      }
+    };
+
+    // ライブラリをロードし、インスタンス作成関数を取得する
+    HMODULE hLib = LoadLibraryW(L"TVTestVideoDecoder.ax");
+    auto pCreateInstance =
+      reinterpret_cast<decltype(TVTestVideoDecoder_CreateInstance) *>(
+        GetProcAddress(hLib, "TVTestVideoDecoder_CreateInstance"));
+
+    // デコーダのインスタンスを作成する
+    ITVTestVideoFrameDecoder *pDecoder;
+    pCreateInstance(IID_PPV_ARGS(&pDecoder));
+
+    // キャプチャ・インターフェースを設定する
+    // 取得する画像のフォーマットとして、以下のいずれかを指定できる
+    // MEDIASUBTYPE_RGB24 / MEDIASUBTYPE_RGB32 / MEDIASUBTYPE_IYUV / MEDIASUBTYPE_I420
+    CMyFrameCapture *pFrameCapture = new CMyFrameCapture;
+    pDecoder->SetFrameCapture(pFrameCapture, MEDIASUBTYPE_RGB32);
+
+    // デコーダを開く
+    pDecoder->Open(MEDIASUBTYPE_MPEG2_VIDEO);
+
+    while ( ... ) {
+      ...
+      // デコーダにストリームを入力する
+      // フレームがデコードされる度に、OnFrame が呼び出される
+      pDecoder->InputStream(PointerToData, SizeOfData);
+    }
+
+    // デコーダを閉じ、インターフェースを解放する
+    pDecoder->Close();
+    pDecoder->Release();
+
+    // ライブラリを解放する
+    FreeLibrary(hLib);
 
 
 ◆ 現在の制限
