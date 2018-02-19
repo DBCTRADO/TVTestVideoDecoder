@@ -41,9 +41,6 @@
 
   Visual Studio 2013 のプロジェクトファイルを添付している。
 
-  予め DirectShow の BaseClasses ライブラリ(Windows SDK の Samples\Multimedia\
-  DirectShow\BaseClasses)のファイルを src/BaseClasses に複製しておく。
-
   src フォルダ内のソリューションファイル(.sln)を Visual Studio で開いてビルドす
   ることができる。以下のソリューションファイルを添付している。
 
@@ -225,6 +222,10 @@
 ◆ 使用ライブラリ
 
   この資料は以下のライブラリを利用している。
+
+    DirectShow BaseClasses
+      Copyright (c) Microsoft Corporation
+      https://github.com/Microsoft/Windows-classic-samples/tree/master/Samples/Win7Samples/multimedia/directshow/baseclasses
 
     libmpeg2 0.5.1
       Copyright (C) 2000-2004 Michel Lespinasse
