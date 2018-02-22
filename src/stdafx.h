@@ -28,6 +28,8 @@
 
 #define WIN32_LEAN_AND_MEAN
 
+#define _USE_MATH_DEFINES
+
 #ifndef _DEBUG
 #define _SECURE_SCL 0
 #endif
