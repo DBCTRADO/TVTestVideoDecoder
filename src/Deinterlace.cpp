@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2016 DBCTRADO
+ *  Copyright (C) 2015-2018 DBCTRADO
  *
  *  ELA deinterlacing is based on VirtualDub
  *  Copyright (C) 1998-2007 Avery Lee
