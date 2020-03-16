@@ -555,7 +555,11 @@ static void ELA_Result_SSSE3(__m128i * restrict pDst, const __m128i * restrict p
 
 static void ELARow_SSE2_SSSE3(
 	uint8_t * restrict pDst, const uint8_t * restrict pSrcT, const uint8_t * restrict pSrcB,
-	uint32_t Width, __m128i * restrict pTempBuf, bool fSSSE3)
+	uint32_t Width, __m128i * restrict pTempBuf
+#ifdef TVTVIDEODEC_SSSE3_SUPPORT
+	, bool fSSSE3
+#endif
+	)
 {
 	const __m128i * restrict srct = (const __m128i*)pSrcT;
 	const __m128i * restrict srcb = (const __m128i*)pSrcB;
@@ -588,10 +592,13 @@ static void ELARow_SSE2_SSSE3(
 	pTopBuf[w16 + 1] = pTopBuf[w16];
 	pBottomBuf[w16 + 1] = pBottomBuf[w16];
 
+#ifdef TVTVIDEODEC_SSSE3_SUPPORT
 	if (fSSSE3) {
 		ELA_Score_SSSE3(pElaBuf, pTopBuf, pBottomBuf, w16);
 		ELA_Result_SSSE3((__m128i*)pDst, pElaBuf, w16);
-	} else {
+	} else
+#endif
+	{
 		ELA_Score_SSE2(pElaBuf, pTopBuf, pBottomBuf, w16);
 		ELA_Result_SSE2((__m128i*)pDst, pElaBuf, w16);
 	}
@@ -619,7 +626,9 @@ static void ELAPlane(
 	if (IsSSE2Enabled()
 			&& !((uintptr_t)pDst & 15) && !(DstPitch % 16)
 			&& !((uintptr_t)pSrc & 15) && !(SrcPitch % 16)) {
+#ifdef TVTVIDEODEC_SSSE3_SUPPORT
 		const bool fSSSE3 = IsSSSE3Enabled();
+#endif
 
 		if (!fTopFiled) {
 			p += SrcPitch;
@@ -632,7 +641,12 @@ static void ELAPlane(
 			if ((y & 1) == Field) {
 				Copy_SSE2(q, p, Width);
 			} else {
-				ELARow_SSE2_SSSE3(q, p - SrcPitch, p + SrcPitch, Width, (__m128i*)pELABuffer, fSSSE3);
+				ELARow_SSE2_SSSE3(
+					q, p - SrcPitch, p + SrcPitch, Width, (__m128i*)pELABuffer
+#ifdef TVTVIDEODEC_SSSE3_SUPPORT
+					, fSSSE3
+#endif
+					);
 			}
 			q += DstPitch;
 			p += SrcPitch;
