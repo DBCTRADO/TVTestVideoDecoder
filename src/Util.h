@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,3 +63,5 @@ BITMAPINFOHEADER *GetBitmapInfoHeader(AM_MEDIA_TYPE *pmt);
 const BITMAPINFOHEADER *GetBitmapInfoHeader(const AM_MEDIA_TYPE *pmt);
 CLSID GetConnectedFilterCLSID(CBasePin *pPin);
 bool IsMediaTypeInterlaced(const AM_MEDIA_TYPE *pmt);
+SIZE GetDXVASurfaceSize(const SIZE &Size, bool fMPEG2);
+bool IsWindows8OrGreater();

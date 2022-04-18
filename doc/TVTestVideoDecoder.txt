@@ -29,8 +29,7 @@
 ◆ 試験環境
 
   ・OS
-      Windows Vista/7/8/10
-      ※XP での動作は確認していない
+      Windows Vista/7/8/10/11
 
   ・CPU
       SSE2 対応 CPU
@@ -39,13 +38,12 @@
 
 ◆ 試験資料構築
 
-  Visual Studio 2013 のプロジェクトファイルを添付している。
+  Visual Studio 2019 のプロジェクトファイルを添付している。
 
   src フォルダ内のソリューションファイル(.sln)を Visual Studio で開いてビルドす
   ることができる。以下のソリューションファイルを添付している。
 
-  ・TVTestVideoDecoder.sln      Visual C++ 2013
-  ・TVTestVideoDecoder.ICL.sln  Visual C++ 2013 + Intel C++ Composer XE 2015
+  ・TVTestVideoDecoder.sln  Visual C++ 2019
 
 
 ◆ 試験方法
@@ -78,11 +76,23 @@
 
   フィルタのプロパティでいくつかの設定を行うことができる。
 
-  ・DXVA2 によるデコードを有効にする
-    デバイスが利用可能であれば DXVA2 によるデコードを行う。
-    レンダラに EVR が選択されていて、デバイスが MPEG-2 の VLD (Variable-Length
-    Decoding) モードに対応している必要がある。
+  ・デコーダ
+    使用するデコーダを選択する。
     この設定を反映させるには、プログラムの再起動かフィルタグラフ再初期化を行う。
+    選択できるデコーダは以下のいずれかである。
+
+    ・ソフトウェア
+      ソフトウェアデコーダを使用する。デコードは CPU によって行われる。
+
+    ・DXVA2 (EVR 利用時のみ)
+      DXVA2 (DirectX Video Acceleration 2) によるデコードを行う。
+      レンダラに EVR が選択されていて、GPU が MPEG-2 の VLD (Variable-Length
+      Decoding) モードに対応している必要がある。
+
+    ・D3D11 (Windows 8 以降)
+      Direct3D 11 によるデコードを行う。
+      GPU が MPEG-2 の VLD (Variable-Length Decoding) モードに対応している必要
+      がある。
 
   ・インターレース解除を行う
   ・インターレース解除を行わない

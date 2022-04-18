@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,11 +36,12 @@
 
 class CTVTestVideoDecoder
 	: public CBaseVideoFilter
-	, public ITVTestVideoDecoder
+	, public ITVTestVideoDecoder2
 	, public ISpecifyPropertyPages2
 	, protected CDeinterlacerSet
 {
 	friend class CMpeg2DecoderDXVA2;
+	friend class CMpeg2DecoderD3D11;
 
 public:
 	CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT *phr, bool fLocal = false);
@@ -111,6 +112,13 @@ public:
 
 	STDMETHODIMP SetFrameCapture(ITVTestVideoDecoderFrameCapture *pFrameCapture) override;
 
+// ITVTestVideoDecoder2
+
+	STDMETHODIMP SetEnableD3D11(BOOL fEnable) override;
+	STDMETHODIMP_(BOOL) GetEnableD3D11() override;
+	STDMETHODIMP SetNumQueueFrames(UINT NumFrames) override;
+	STDMETHODIMP_(UINT) GetNumQueueFrames() override;
+
 private:
 	CMpeg2Decoder *m_pDecoder;
 	CFrameBuffer m_FrameBuffer;
@@ -124,6 +132,7 @@ private:
 	int m_FrameCount;
 	AM_SimpleRateChange m_RateChange;
 	bool m_fLocalInstance;
+	bool m_fForceSoftwareDecoder;
 	CCritSec m_csStats;
 	TVTVIDEODEC_Statistics m_Statistics;
 
@@ -133,6 +142,7 @@ private:
 
 	CCritSec m_csProps;
 	bool m_fDXVA2Decode;
+	bool m_fD3D11Decode;
 	bool m_fEnableDeinterlace;
 	TVTVIDEODEC_DeinterlaceMethod m_DeinterlaceMethod;
 	bool m_fAdaptProgressive;
@@ -144,15 +154,18 @@ private:
 	int m_Hue;
 	int m_Saturation;
 	int m_NumThreads;
+	UINT m_NumQueueFrames;
 	bool m_fCrop1088To1080;
 	CFrameCapture m_FrameCapture;
 
-	HRESULT DeliverFrame(CFrameBuffer *pFrameBuffer);
+	HRESULT DeliverFrame(const CFrameBuffer *pFrameBuffer);
 	HRESULT Deliver(IMediaSample *pOutSample, CFrameBuffer *pFrameBuffer);
 	HRESULT SetupOutputFrameBuffer(CFrameBuffer *pFrameBuffer, IMediaSample *pSample, CDeinterlacer *pDeinterlacer);
 	void SetFrameStatus();
 	void SetTypeSpecificFlags(IMediaSample *pSample);
 	HRESULT InitDecode(bool fPutSequenceHeader);
+	HRESULT FlushFrameQueue();
+	void ClearFrameQueue();
 
 	HRESULT Transform(IMediaSample *pIn) override;
 	bool IsVideoInterlaced() override;

@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -177,4 +177,33 @@ bool IsMediaTypeInterlaced(const AM_MEDIA_TYPE *pmt)
 {
 	return IsVideoInfo2(pmt)
 		&& (((const VIDEOINFOHEADER2*)pmt->pbFormat)->dwInterlaceFlags & AMINTERLACE_IsInterlaced);
+}
+
+SIZE GetDXVASurfaceSize(const SIZE &Size, bool fMPEG2)
+{
+	/*
+		NOTE: from ffmpeg
+		decoding MPEG-2 requires additional alignment on some Intel GPUs,
+		but it causes issues for H.264 on certain AMD GPUs.....
+	*/
+	const int Align = fMPEG2 ? 32 : 16;
+
+	SIZE AlignedSize;
+	AlignedSize.cx = (Size.cx + (Align - 1)) & ~(Align - 1);
+	AlignedSize.cy = (Size.cy + (Align - 1)) & ~(Align - 1);
+
+	return AlignedSize;
+}
+
+bool IsWindows8OrGreater()
+{
+	OSVERSIONINFOEX osvi = {sizeof(OSVERSIONINFOEX)};
+	osvi.dwMajorVersion = 6;
+	osvi.dwMinorVersion = 2;
+
+	DWORDLONG ConditionMask = 0;
+	ConditionMask |= ::VerSetConditionMask(ConditionMask, VER_MAJORVERSION, VER_GREATER_EQUAL);
+	ConditionMask |= ::VerSetConditionMask(ConditionMask, VER_MINORVERSION, VER_GREATER_EQUAL);
+
+	return ::VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, ConditionMask) != FALSE;
 }

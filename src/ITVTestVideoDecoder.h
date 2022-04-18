@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ enum TVTVIDEODEC_DeinterlaceMethod : int
 
 #define TVTVIDEODEC_MAX_THREADS 32
 
-struct TVTVIDEODEC_DXVADeviceInfo
+struct TVTVIDEODEC_HardwareDecoderInfo
 {
 	WCHAR Description[512];
 	WORD Product;
@@ -79,27 +79,28 @@ struct TVTVIDEODEC_Statistics
 	LONGLONG BaseTimePerFrame;
 	DWORD RepeatFieldCount;
 	DWORD Mode;
-	TVTVIDEODEC_DXVADeviceInfo DXVADeviceInfo;
+	TVTVIDEODEC_HardwareDecoderInfo HardwareDecoderInfo;
 };
 
-#define TVTVIDEODEC_STAT_OUT_SIZE            0x00000001
-#define TVTVIDEODEC_STAT_FRAME_COUNT         0x00000002
-#define TVTVIDEODEC_STAT_PLAYBACK_RATE       0x00000004
-#define TVTVIDEODEC_STAT_BASE_TIME_PER_FRAME 0x00000008
-#define TVTVIDEODEC_STAT_FIELD_COUNT         0x00000010
-#define TVTVIDEODEC_STAT_MODE                0x00000020
-#define TVTVIDEODEC_STAT_DXVA_DEVICE_INFO    0x00000040
-#define TVTVIDEODEC_STAT_ALL                 0x0000007f
+#define TVTVIDEODEC_STAT_OUT_SIZE              0x00000001
+#define TVTVIDEODEC_STAT_FRAME_COUNT           0x00000002
+#define TVTVIDEODEC_STAT_PLAYBACK_RATE         0x00000004
+#define TVTVIDEODEC_STAT_BASE_TIME_PER_FRAME   0x00000008
+#define TVTVIDEODEC_STAT_FIELD_COUNT           0x00000010
+#define TVTVIDEODEC_STAT_MODE                  0x00000020
+#define TVTVIDEODEC_STAT_HARDWARE_DECODER_INFO 0x00000040
+#define TVTVIDEODEC_STAT_ALL                   0x0000007f
 
-#define TVTVIDEODEC_MODE_DXVA2               0x00000001
+#define TVTVIDEODEC_MODE_DXVA2                 0x00000001
+#define TVTVIDEODEC_MODE_D3D11                 0x00000002
 
-#define TVTVIDEODEC_FRAME_TOP_FIELD_FIRST    0x00000001
-#define TVTVIDEODEC_FRAME_REPEAT_FIRST_FIELD 0x00000002
-#define TVTVIDEODEC_FRAME_PROGRESSIVE        0x00000004
-#define TVTVIDEODEC_FRAME_WEAVE              0x00000008
-#define TVTVIDEODEC_FRAME_TYPE_I             0x00000010
-#define TVTVIDEODEC_FRAME_TYPE_P             0x00000020
-#define TVTVIDEODEC_FRAME_TYPE_B             0x00000040
+#define TVTVIDEODEC_FRAME_TOP_FIELD_FIRST      0x00000001
+#define TVTVIDEODEC_FRAME_REPEAT_FIRST_FIELD   0x00000002
+#define TVTVIDEODEC_FRAME_PROGRESSIVE          0x00000004
+#define TVTVIDEODEC_FRAME_WEAVE                0x00000008
+#define TVTVIDEODEC_FRAME_TYPE_I               0x00000010
+#define TVTVIDEODEC_FRAME_TYPE_P               0x00000020
+#define TVTVIDEODEC_FRAME_TYPE_B               0x00000040
 
 struct TVTVIDEODEC_ColorDescription
 {
@@ -166,6 +167,16 @@ ITVTestVideoDecoder : public IUnknown
 	STDMETHOD(GetStatistics)(TVTVIDEODEC_Statistics *pStatistics) PURE;
 
 	STDMETHOD(SetFrameCapture)(ITVTestVideoDecoderFrameCapture *pFrameCapture) PURE;
+};
+
+/* DirectShow decoder interface (+ D3D11 support) */
+MIDL_INTERFACE("59AA8CCF-2743-456D-B00B-8650B7FF0936")
+ITVTestVideoDecoder2 : public ITVTestVideoDecoder
+{
+	STDMETHOD(SetEnableD3D11)(BOOL fEnable) PURE;
+	STDMETHOD_(BOOL, GetEnableD3D11)() PURE;
+	STDMETHOD(SetNumQueueFrames)(UINT NumFrames) PURE;
+	STDMETHOD_(UINT, GetNumQueueFrames)() PURE;
 };
 
 /* Stand-alone decoder interface */

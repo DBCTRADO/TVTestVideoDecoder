@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@
 
 
 class CDXVA2Allocator;
+class CD3D11Allocator;
 
 class CBaseVideoFilter : public CTransformFilter
 {
@@ -98,7 +99,7 @@ protected:
 	VideoDimensions m_OutDimensions;
 	VideoDimensions m_MediaDimensions;
 
-	IDirect3DDeviceManager9 *m_pD3DDeviceManager;
+	IDirect3DDeviceManager9 *m_pD3D9DeviceManager;
 	HANDLE m_hDXVADevice;
 	CDXVA2Allocator *m_pDXVA2Allocator;
 	bool m_fDXVAConnect;
@@ -117,6 +118,7 @@ protected:
 		bool fSendSample = true, bool fForce = false,
 		REFERENCE_TIME AvgTimePerFrame = 0, bool fInterlaced = false);
 	HRESULT InitAllocator(IMemAllocator **ppAllocator);
+	void FreeAllocator();
 	HRESULT RecommitAllocator();
 	void CloseDXVA2DeviceManager();
 	void CloseDXVA2DeviceHandle();

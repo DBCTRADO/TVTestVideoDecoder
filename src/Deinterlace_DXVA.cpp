@@ -537,7 +537,7 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 		return FRAME_SKIP;
 	}
 
-	if (pDstBuffer->m_pSurface) {
+	if (pDstBuffer->m_pD3D9Surface) {
 		D3DSURFACE_DESC descSrc, descDst;
 		D3DLOCKED_RECT rectSrc, rectDst;
 
@@ -547,7 +547,7 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 			return FRAME_SKIP;
 		}
 
-		hr = pDstBuffer->m_pSurface->GetDesc(&descDst);
+		hr = pDstBuffer->m_pD3D9Surface->GetDesc(&descDst);
 		if (FAILED(hr)) {
 			DBG_ERROR(TEXT("Failed to get surface desc (%x)"), hr);
 			return FRAME_SKIP;
@@ -559,7 +559,7 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 			return FRAME_SKIP;
 		}
 
-		hr = pDstBuffer->m_pSurface->LockRect(&rectDst, nullptr, D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
+		hr = pDstBuffer->m_pD3D9Surface->LockRect(&rectDst, nullptr, D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
 		if (FAILED(hr)) {
 			DBG_ERROR(TEXT("Failed to lock surface (%x)"), hr);
 			pSurface->UnlockRect();
@@ -571,7 +571,7 @@ CDeinterlacer::FrameStatus CDeinterlacer_DXVA::GetFrame(
 			(uint8_t*)rectDst.pBits, (uint8_t*)rectDst.pBits + descDst.Height * rectDst.Pitch, rectDst.Pitch,
 			(const uint8_t*)rectSrc.pBits, (const uint8_t*)rectSrc.pBits + descSrc.Height * rectSrc.Pitch, rectSrc.Pitch);
 
-		pDstBuffer->m_pSurface->UnlockRect();
+		pDstBuffer->m_pD3D9Surface->UnlockRect();
 		pSurface->UnlockRect();
 	} else {
 		hr = pSurface->GetDesc(&desc);

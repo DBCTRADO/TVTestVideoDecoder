@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,8 +44,10 @@ public:
 	int m_PitchC;
 	uint8_t *m_pBuffer;
 	uint8_t *m_Buffer[3];
-	interface IDirect3DSurface9 *m_pSurface;
 	GUID m_Subtype;
+	interface IDirect3DSurface9 *m_pD3D9Surface;
+	interface ID3D11Texture2D *m_pD3D11Texture;
+	UINT m_D3D11TextureArraySlice;
 	int m_AspectX;
 	int m_AspectY;
 	REFERENCE_TIME m_rtStart;

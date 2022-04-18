@@ -121,13 +121,13 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoderService(CTVTestVideoDecoder *pFilter)
 
 	if (!pFilter)
 		return E_POINTER;
-	if (!pFilter->m_pD3DDeviceManager || !pFilter->m_hDXVADevice)
+	if (!pFilter->m_pD3D9DeviceManager || !pFilter->m_hDXVADevice)
 		return E_UNEXPECTED;
 
 	CloseDecoderService();
 
 	m_pFilter = pFilter;
-	m_pDeviceManager = pFilter->m_pD3DDeviceManager;
+	m_pDeviceManager = pFilter->m_pD3D9DeviceManager;
 	m_pDeviceManager->AddRef();
 
 	HRESULT hr;

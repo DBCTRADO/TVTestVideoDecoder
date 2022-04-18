@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 #include "stdafx.h"
 #include <commctrl.h>
 #include "TVTestVideoDecoderProp.h"
+#include "Util.h"
 #include "resource.h"
 
 
@@ -97,6 +98,12 @@ HRESULT CTVTestVideoDecoderProp::OnDisconnect()
 		m_pDecoder->SetNumThreads(m_OldSettings.NumThreads);
 		m_pDecoder->SetEnableDXVA2(m_OldSettings.fEnableDXVA2);
 
+		ITVTestVideoDecoder2 *pDecoder2;
+		if (SUCCEEDED(m_pDecoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
+			pDecoder2->SetEnableD3D11(m_OldSettings.fEnableD3D11);
+			pDecoder2->Release();
+		}
+
 		m_pDecoder->SaveOptions();
 
 		m_pDecoder->Release();
@@ -124,10 +131,29 @@ HRESULT CTVTestVideoDecoderProp::OnActivate()
 	m_OldSettings.Saturation = m_pDecoder->GetSaturation();
 	m_OldSettings.NumThreads = m_pDecoder->GetNumThreads();
 	m_OldSettings.fEnableDXVA2 = m_pDecoder->GetEnableDXVA2() != FALSE;
+
+	ITVTestVideoDecoder2 *pDecoder2;
+	if (SUCCEEDED(m_pDecoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
+		m_OldSettings.fEnableD3D11 = pDecoder2->GetEnableD3D11() != FALSE;
+		pDecoder2->Release();
+	} else {
+		m_OldSettings.fEnableD3D11 = false;
+	}
+
 	m_NewSettings = m_OldSettings;
 
-	::CheckDlgButton(m_Dlg, IDC_PROP_ENABLE_DXVA2,
-					 m_OldSettings.fEnableDXVA2 ? BST_CHECKED : BST_UNCHECKED);
+	for (int i = IDS_DECODER_FIRST; i <= IDS_DECODER_LAST; i++) {
+		if (i == IDS_DECODER_D3D11 && !IsWindows8OrGreater())
+			break;
+		TCHAR szText[64];
+		::LoadString(g_hInst, i, szText, _countof(szText));
+		::SendDlgItemMessage(m_Dlg, IDC_PROP_DECODER, CB_ADDSTRING, 0, (LPARAM)szText);
+	}
+	::SendDlgItemMessage(
+		m_Dlg, IDC_PROP_DECODER, CB_SETCURSEL,
+		m_OldSettings.fEnableDXVA2 ? DECODER_DXVA2 :
+		m_OldSettings.fEnableD3D11 ? DECODER_D3D11 :
+		DECODER_SOFTWARE, 0);
 
 	::CheckRadioButton(m_Dlg, IDC_PROP_DEINTERLACE_ENABLE, IDC_PROP_DEINTERLACE_DISABLE,
 					   m_OldSettings.fEnableDeinterlace ? IDC_PROP_DEINTERLACE_ENABLE : IDC_PROP_DEINTERLACE_DISABLE);
@@ -234,14 +260,25 @@ INT_PTR CTVTestVideoDecoderProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 	switch (uMsg) {
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
-		case IDC_PROP_ENABLE_DXVA2:
-			if (m_pDecoder) {
-				bool fEnableDXVA2 =
-					::IsDlgButtonChecked(hwnd, IDC_PROP_ENABLE_DXVA2) == BST_CHECKED;
-				if (fEnableDXVA2 != m_NewSettings.fEnableDXVA2) {
-					m_NewSettings.fEnableDXVA2 = fEnableDXVA2;
-					//m_pDecoder->SetEnableDXVA2(fEnableDXVA2);
-					MakeDirty();
+		case IDC_PROP_DECODER:
+			if (HIWORD(wParam) == CBN_SELCHANGE) {
+				if (m_pDecoder) {
+					const int Decoder = (int)::SendDlgItemMessage(hwnd, IDC_PROP_DECODER, CB_GETCURSEL, 0, 0);
+					const bool fEnableDXVA2 = Decoder == DECODER_DXVA2;
+					const bool fEnableD3D11 = Decoder == DECODER_D3D11;
+					if (fEnableDXVA2 != m_NewSettings.fEnableDXVA2 || fEnableD3D11 != m_NewSettings.fEnableD3D11) {
+						m_NewSettings.fEnableDXVA2 = fEnableDXVA2;
+						m_NewSettings.fEnableD3D11 = fEnableD3D11;
+#if 0
+						m_pDecoder->SetEnableDXVA2(fEnableDXVA2);
+						ITVTestVideoDecoder2 *pDecoder2;
+						if (SUCCEEDED(m_pDecoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
+							pDecoder2->SetEnableD3D11(fEnableD3D11);
+							pDecoder2->Release();
+						}
+#endif
+						MakeDirty();
+					}
 				}
 			}
 			return TRUE;

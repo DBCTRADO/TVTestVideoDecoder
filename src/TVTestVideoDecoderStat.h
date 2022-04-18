@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,5 +54,5 @@ private:
 	void UpdatePlaybackRate(LONG PlaybackRate);
 	void UpdateBaseFPS(LONGLONG BaseTimePerFrame);
 	void UpdateMode(DWORD Mode);
-	void UpdateDXVADeviceDescription(LPCWSTR pszDescription);
+	void UpdateDecoderDeviceDescription(LPCWSTR pszDescription);
 };

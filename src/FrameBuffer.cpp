@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,8 +30,10 @@ CFrameBuffer::CFrameBuffer()
 	, m_PitchY(0)
 	, m_PitchC(0)
 	, m_pBuffer(nullptr)
-	, m_pSurface(nullptr)
 	, m_Subtype(GUID_NULL)
+	, m_pD3D9Surface(nullptr)
+	, m_pD3D11Texture(nullptr)
+	, m_D3D11TextureArraySlice(0)
 	, m_AspectX(0)
 	, m_AspectY(0)
 	, m_rtStart(0)
@@ -74,6 +76,22 @@ bool CFrameBuffer::Allocate(int Width, int Height, REFGUID Subtype)
 		p += SizeY;
 		m_Buffer[1] = p;
 		p += SizeC;
+		m_Buffer[2] = p;
+	} else if (Subtype == MEDIASUBTYPE_NV12) {
+		const int Pitch = RowBytes(Width);
+		const int Size = Pitch * Height;
+
+		m_pBuffer = (uint8_t*)::_aligned_malloc(Size * 2, 32);
+		if (!m_pBuffer)
+			return false;
+
+		m_PitchY = Pitch;
+		m_PitchC = Pitch;
+
+		uint8_t *p = m_pBuffer;
+		m_Buffer[0] = p;
+		p += Size;
+		m_Buffer[1] = p;
 		m_Buffer[2] = p;
 	} else if (Subtype == MEDIASUBTYPE_RGB24 || Subtype == MEDIASUBTYPE_RGB32) {
 		const int Pitch = RowBytes(Width * (Subtype == MEDIASUBTYPE_RGB24 ? 3 : 4));
@@ -144,7 +162,8 @@ bool CFrameBuffer::CopyReferenceTo(CFrameBuffer *pBuffer) const
 	pBuffer->m_PitchC = m_PitchC;
 	for (int i = 0; i < _countof(m_Buffer); i++)
 		pBuffer->m_Buffer[i] = m_Buffer[i];
-	pBuffer->m_pSurface = m_pSurface;
+	pBuffer->m_pD3D9Surface = m_pD3D9Surface;
+	pBuffer->m_pD3D11Texture = m_pD3D11Texture;
 	pBuffer->m_Subtype = m_Subtype;
 
 	pBuffer->CopyAttributesFrom(this);

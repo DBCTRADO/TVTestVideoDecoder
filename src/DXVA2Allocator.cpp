@@ -44,13 +44,13 @@ HRESULT CDXVA2Allocator::Alloc()
 
 	DBG_TRACE(TEXT("CDXVA2Allocator::Alloc()"));
 
-	if (!m_pFilter->m_pD3DDeviceManager || !m_pFilter->m_hDXVADevice)
+	if (!m_pFilter->m_pD3D9DeviceManager || !m_pFilter->m_hDXVADevice)
 		return E_UNEXPECTED;
 
 	HRESULT hr;
 
 	IDirectXVideoDecoderService *pDecoderService;
-	hr = m_pFilter->m_pD3DDeviceManager->GetVideoService(
+	hr = m_pFilter->m_pD3D9DeviceManager->GetVideoService(
 		m_pFilter->m_hDXVADevice, IID_PPV_ARGS(&pDecoderService));
 	if (FAILED(hr)) {
 		DBG_ERROR(TEXT("IDirect3DDeviceManager9::GetVideoService() failed (%x)"), hr);

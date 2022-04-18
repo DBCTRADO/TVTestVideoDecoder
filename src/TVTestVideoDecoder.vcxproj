@@ -190,6 +190,7 @@
     <ClInclude Include="ColorAdjustment.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Copy.h" />
+    <ClInclude Include="D3D11Allocator.h" />
     <ClInclude Include="Deinterlace.h" />
     <ClInclude Include="DeinterlacerSet.h" />
     <ClInclude Include="Deinterlace_DXVA.h" />
@@ -201,6 +202,7 @@
     <ClInclude Include="ITVTestVideoDecoder.h" />
     <ClInclude Include="MediaTypes.h" />
     <ClInclude Include="Mpeg2Decoder.h" />
+    <ClInclude Include="Mpeg2DecoderD3D11.h" />
     <ClInclude Include="Mpeg2DecoderDXVA2.h" />
     <ClInclude Include="PixelFormatConvert.h" />
     <ClInclude Include="resource.h" />
@@ -216,6 +218,7 @@
     <ClCompile Include="Acceleration.cpp" />
     <ClCompile Include="BaseVideoFilter.cpp" />
     <ClCompile Include="ColorAdjustment.cpp" />
+    <ClCompile Include="D3D11Allocator.cpp" />
     <ClCompile Include="Deinterlace.cpp" />
     <ClCompile Include="DeinterlacerSet.cpp" />
     <ClCompile Include="Deinterlace_DXVA.cpp" />
@@ -225,6 +228,7 @@
     <ClCompile Include="FrameBuffer.cpp" />
     <ClCompile Include="FrameCapture.cpp" />
     <ClCompile Include="Mpeg2Decoder.cpp" />
+    <ClCompile Include="Mpeg2DecoderD3D11.cpp" />
     <ClCompile Include="Mpeg2DecoderDXVA2.cpp" />
     <ClCompile Include="PixelFormatConvert.cpp" />
     <ClCompile Include="stdafx.cpp">
