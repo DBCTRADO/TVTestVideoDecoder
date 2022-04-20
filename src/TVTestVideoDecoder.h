@@ -133,6 +133,7 @@ private:
 	AM_SimpleRateChange m_RateChange;
 	bool m_fLocalInstance;
 	bool m_fForceSoftwareDecoder;
+	bool m_fReInitDecoder;
 	CCritSec m_csStats;
 	TVTVIDEODEC_Statistics m_Statistics;
 

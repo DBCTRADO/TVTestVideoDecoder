@@ -79,6 +79,7 @@ CTVTestVideoDecoder::CTVTestVideoDecoder(LPUNKNOWN lpunk, HRESULT* phr, bool fLo
 	, m_RateChange({0, 10000})
 	, m_fLocalInstance(fLocal)
 	, m_fForceSoftwareDecoder(false)
+	, m_fReInitDecoder(false)
 	, m_Statistics()
 
 	, m_fDXVA2Decode(false)
@@ -209,6 +210,9 @@ HRESULT CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 		CMpeg2DecoderD3D11 *pD3D11Decoder = dynamic_cast<CMpeg2DecoderD3D11 *>(m_pDecoder);
 		if (pD3D11Decoder) {
 			HRESULT hr = S_OK;
+			if (m_fReInitDecoder) {
+				pD3D11Decoder->CloseDevice();
+			}
 			if (!pD3D11Decoder->IsDeviceCreated()) {
 				hr = pD3D11Decoder->CreateDevice(this);
 			}
@@ -226,6 +230,8 @@ HRESULT CTVTestVideoDecoder::InitDecode(bool fPutSequenceHeader)
 			}
 		}
 	}
+
+	m_fReInitDecoder = false;
 
 	if (!m_pDecoder) {
 		if (m_fD3D11Decode && !m_fForceSoftwareDecoder) {
@@ -567,7 +573,7 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 {
 	HRESULT hr;
 
-	if (!m_pDecoder || pIn->IsDiscontinuity() == S_OK) {
+	if (!m_pDecoder || m_fReInitDecoder || pIn->IsDiscontinuity() == S_OK) {
 		hr = InitDecode(false);
 		if (FAILED(hr)) {
 			return hr;
@@ -747,7 +753,7 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 							return hr;
 						}
 					} else if (pD3D11Decoder->IsDeviceLost()) {
-						SafeDelete(m_pDecoder);
+						m_fReInitDecoder = true;
 						break;
 					}
 				} else if (picture && !(picture->flags & PIC_FLAG_SKIP)) {
