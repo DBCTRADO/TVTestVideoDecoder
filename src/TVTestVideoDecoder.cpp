@@ -801,7 +801,7 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(const CFrameBuffer *pFrameBuffer)
 
 	CFrameBuffer DstBuffer;
 
-	pFrameBuffer->CopyReferenceTo(&DstBuffer);
+	DstBuffer.CopyAttributesFrom(pFrameBuffer);
 
 	hr = SetupOutputFrameBuffer(&DstBuffer, pOutSample, pDeinterlacer);
 	if (FAILED(hr)) {
@@ -847,46 +847,84 @@ HRESULT CTVTestVideoDecoder::DeliverFrame(const CFrameBuffer *pFrameBuffer)
 		return hr;
 	}
 
+	const CFrameBuffer *pSrcBuffer = pFrameBuffer;
+	CFrameBuffer *pDstBuffer = &DstBuffer;
+
+	if (!DstBuffer.m_Buffer[0]) {
+		GUID Subtype;
+
+		if (pDeinterlacer->IsFormatSupported(pFrameBuffer->m_Subtype, pFrameBuffer->m_Subtype)) {
+			Subtype = pFrameBuffer->m_Subtype;
+		} else {
+			Subtype = MEDIASUBTYPE_I420;
+		}
+
+		if (pFrameBuffer->m_Subtype != Subtype) {
+			CFrameBuffer *pTempBuffer = &m_DeinterlaceTempBuffer[0];
+
+			if (!pTempBuffer->m_pBuffer
+					|| pTempBuffer->m_Subtype != Subtype
+					|| pTempBuffer->m_Width != pFrameBuffer->m_Width
+					|| pTempBuffer->m_Height != pFrameBuffer->m_Height) {
+				if (!pTempBuffer->Allocate(pFrameBuffer->m_Width, pFrameBuffer->m_Height, Subtype)) {
+					pOutSample->Release();
+					return E_OUTOFMEMORY;
+				}
+			}
+			pTempBuffer->CopyAttributesFrom(pFrameBuffer);
+			pTempBuffer->CopyPixelsFrom(pFrameBuffer);
+			pSrcBuffer = pTempBuffer;
+		}
+
+		pDstBuffer = &m_DeinterlaceTempBuffer[1];
+		if (!pDstBuffer->m_pBuffer
+				|| pDstBuffer->m_Subtype != Subtype
+				|| pDstBuffer->m_Width != pFrameBuffer->m_Width
+				|| pDstBuffer->m_Height != pFrameBuffer->m_Height) {
+			if (!pDstBuffer->Allocate(pFrameBuffer->m_Width, pFrameBuffer->m_Height, Subtype)) {
+				pOutSample->Release();
+				return E_OUTOFMEMORY;
+			}
+		}
+		pDstBuffer->CopyAttributesFrom(pFrameBuffer);
+	}
+
 	const bool fTopFieldFirst = !!(pFrameBuffer->m_Flags & FRAME_FLAG_TOP_FIELD_FIRST);
 	CDeinterlacer::FrameStatus FrameStatus;
 	REFERENCE_TIME rtStop = INVALID_TIME;
 
-	FrameStatus = pDeinterlacer->GetFrame(&DstBuffer, pFrameBuffer, fTopFieldFirst, 0);
+	FrameStatus = pDeinterlacer->GetFrame(pDstBuffer, pSrcBuffer, fTopFieldFirst, 0);
 	if (FrameStatus == CDeinterlacer::FRAME_SKIP) {
-		FrameStatus = m_Deinterlacer_Blend.GetFrame(&DstBuffer, pFrameBuffer, fTopFieldFirst, 0);
+		FrameStatus = m_Deinterlacer_Blend.GetFrame(pDstBuffer, pSrcBuffer, fTopFieldFirst, 0);
 	}
 	if (FrameStatus == CDeinterlacer::FRAME_OK) {
 		if (pDeinterlacer->IsDoubleFrame()) {
-			if (DstBuffer.m_rtStart >= 0 && DstBuffer.m_rtStop >= 0) {
-				rtStop = DstBuffer.m_rtStop;
-				DstBuffer.m_rtStop = (DstBuffer.m_rtStart + DstBuffer.m_rtStop) / 2;
+			if (pDstBuffer->m_rtStart >= 0 && pDstBuffer->m_rtStop >= 0) {
+				rtStop = pDstBuffer->m_rtStop;
+				pDstBuffer->m_rtStop = (pDstBuffer->m_rtStart + pDstBuffer->m_rtStop) / 2;
 			}
 		}
 
-		hr = Deliver(pOutSample, &DstBuffer);
+		hr = Deliver(pOutSample, pDstBuffer);
 		if (FAILED(hr)) {
 			goto DeliverEnd;
 		}
 	}
 
-	pDeinterlacer->FramePostProcess(&DstBuffer, pFrameBuffer, fTopFieldFirst);
+	pDeinterlacer->FramePostProcess(pDstBuffer, pSrcBuffer, fTopFieldFirst);
 
 	if (pDeinterlacer->IsDoubleFrame()) {
-		FrameStatus = pDeinterlacer->GetFrame(&DstBuffer, pFrameBuffer, !fTopFieldFirst, 1);
+		FrameStatus = pDeinterlacer->GetFrame(pDstBuffer, pSrcBuffer, !fTopFieldFirst, 1);
 		if (FrameStatus == CDeinterlacer::FRAME_OK) {
 			if (rtStop >= 0) {
-				DstBuffer.m_rtStart = DstBuffer.m_rtStop;
-				DstBuffer.m_rtStop = rtStop;
+				pDstBuffer->m_rtStart = pDstBuffer->m_rtStop;
+				pDstBuffer->m_rtStop = rtStop;
 			}
 
-			SafeRelease(DstBuffer.m_pD3D9Surface);
-			pOutSample->Release();
+			SafeRelease(pOutSample);
 			hr = GetDeliveryBuffer(&pOutSample);
 			if (SUCCEEDED(hr)) {
-				hr = SetupOutputFrameBuffer(&DstBuffer, pOutSample, pDeinterlacer);
-				if (SUCCEEDED(hr)) {
-					hr = Deliver(pOutSample, &DstBuffer);
-				}
+				hr = Deliver(pOutSample, pDstBuffer);
 			}
 		}
 	}
@@ -1021,9 +1059,8 @@ HRESULT CTVTestVideoDecoder::SetupOutputFrameBuffer(
 		const CMediaType &mt = m_pOutput->CurrentMediaType();
 
 		if (!pDeinterlacer->IsRetainFrame()
-				&& pDeinterlacer->IsFormatSupported(pFrameBuffer->m_Subtype, mt.subtype)
-				&& !m_ColorAdjustment.IsEffective()
-				&& !m_FrameCapture.IsEnabled()) {
+				&& !pDeinterlacer->IsDoubleFrame()
+				&& pDeinterlacer->IsFormatSupported(pFrameBuffer->m_Subtype, mt.subtype)) {
 			BITMAPINFOHEADER bmihOut;
 			BYTE *pOutData;
 

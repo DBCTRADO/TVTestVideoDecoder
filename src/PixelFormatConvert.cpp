@@ -216,11 +216,11 @@ bool PixelCopyNV12ToI420(
 				uv1 = _mm_load_si128((const __m128i*)uv + 1);
 				u0 = _mm_and_si128(uv0, mask);
 				u1 = _mm_and_si128(uv1, mask);
+				v0 = _mm_srli_si128(uv0, 1);
+				v1 = _mm_srli_si128(uv1, 1);
 				u0 = _mm_packus_epi16(u0, u1);
-				uv0 = _mm_srli_si128(uv0, 1);
-				uv1 = _mm_srli_si128(uv1, 1);
-				v0 = _mm_and_si128(uv0, mask);
-				v1 = _mm_and_si128(uv1, mask);
+				v0 = _mm_and_si128(v0, mask);
+				v1 = _mm_and_si128(v1, mask);
 				v0 = _mm_packus_epi16(v0, v1);
 				_mm_store_si128((__m128i*)u, u0);
 				_mm_store_si128((__m128i*)v, v0);

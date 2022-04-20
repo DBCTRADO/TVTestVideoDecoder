@@ -61,4 +61,5 @@ public:
 	void Free();
 	bool CopyAttributesFrom(const CFrameBuffer *pBuffer);
 	bool CopyReferenceTo(CFrameBuffer *pBuffer) const;
+	bool CopyPixelsFrom(const CFrameBuffer *pBuffer);
 };

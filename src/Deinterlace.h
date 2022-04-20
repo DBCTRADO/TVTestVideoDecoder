@@ -31,6 +31,11 @@ void DeinterlaceBlendI420(
 	ptrdiff_t DstPitchY, ptrdiff_t DstPitchC,
 	const uint8_t * restrict pSrcY, const uint8_t * restrict pSrcU, const uint8_t * restrict pSrcV,
 	ptrdiff_t SrcPitchY, ptrdiff_t SrcPitchC);
+void DeinterlaceBlendNV12(
+	uint32_t Width, uint32_t Height,
+	uint8_t * restrict pDstY, uint8_t * restrict pDstUV, ptrdiff_t DstPitch,
+	const uint8_t * restrict pSrcY, const uint8_t * restrict pSrcUV, ptrdiff_t SrcPitch);
+
 void DeinterlaceBob(
 	uint32_t Width, uint32_t Height,
 	uint8_t * restrict pDst, ptrdiff_t DstPitch, const uint8_t * restrict pSrc, ptrdiff_t SrcPitch,
@@ -42,6 +47,12 @@ void DeinterlaceBobI420(
 	const uint8_t * restrict pSrcY, const uint8_t * restrict pSrcU, const uint8_t * restrict pSrcV,
 	ptrdiff_t SrcPitchY, ptrdiff_t SrcPitchC,
 	bool fTopFiled);
+void DeinterlaceBobNV12(
+	uint32_t Width, uint32_t Height,
+	uint8_t * restrict pDstY, uint8_t * restrict pDstUV, ptrdiff_t DstPitch,
+	const uint8_t * restrict pSrcY, const uint8_t * restrict pSrcUV, ptrdiff_t SrcPitch,
+	bool fTopFiled);
+
 void DeinterlaceELA(
 	uint32_t Width, uint32_t Height,
 	uint8_t * restrict pDst, ptrdiff_t DstPitch, const uint8_t * restrict pSrc, ptrdiff_t SrcPitch,
@@ -91,6 +102,7 @@ public:
 	FrameStatus GetFrame(
 		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
 		bool fTopFiledFirst, int Field) override;
+	bool IsFormatSupported(const GUID &SrcSubtype, const GUID &DstSubtype) const override;
 };
 
 class CDeinterlacer_Bob : public CDeinterlacer
@@ -100,6 +112,7 @@ public:
 		CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
 		bool fTopFiledFirst, int Field) override;
 	bool IsDoubleFrame() const override { return true; }
+	bool IsFormatSupported(const GUID &SrcSubtype, const GUID &DstSubtype) const override;
 };
 
 class CDeinterlacer_ELA : public CDeinterlacer

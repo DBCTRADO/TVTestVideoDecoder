@@ -136,6 +136,7 @@ private:
 	CCritSec m_csStats;
 	TVTVIDEODEC_Statistics m_Statistics;
 
+	CFrameBuffer m_DeinterlaceTempBuffer[2];
 	CDeinterlacer_DXVA m_Deinterlacer_DXVA;
 
 	CColorAdjustment m_ColorAdjustment;

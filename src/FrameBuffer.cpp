@@ -19,6 +19,7 @@
 #include "stdafx.h"
 #include <malloc.h>
 #include "FrameBuffer.h"
+#include "PixelFormatConvert.h"
 
 
 static inline int RowBytes(int Width) { return (Width + 31) & ~31; }
@@ -81,7 +82,7 @@ bool CFrameBuffer::Allocate(int Width, int Height, REFGUID Subtype)
 		const int Pitch = RowBytes(Width);
 		const int Size = Pitch * Height;
 
-		m_pBuffer = (uint8_t*)::_aligned_malloc(Size * 2, 32);
+		m_pBuffer = (uint8_t*)::_aligned_malloc(Size + Size / 2, 32);
 		if (!m_pBuffer)
 			return false;
 
@@ -169,4 +170,51 @@ bool CFrameBuffer::CopyReferenceTo(CFrameBuffer *pBuffer) const
 	pBuffer->CopyAttributesFrom(this);
 
 	return true;
+}
+
+bool CFrameBuffer::CopyPixelsFrom(const CFrameBuffer *pBuffer)
+{
+	if (!pBuffer || !pBuffer->m_Buffer[0] || !m_Buffer[0]
+			|| m_Width != pBuffer->m_Width
+			|| m_Height != pBuffer->m_Height)
+		return false;
+
+	if (m_Subtype == MEDIASUBTYPE_I420 || m_Subtype == MEDIASUBTYPE_IYUV) {
+		if (pBuffer->m_Subtype == MEDIASUBTYPE_I420 || pBuffer->m_Subtype == MEDIASUBTYPE_IYUV) {
+			return PixelCopyI420ToI420(
+				m_Width, m_Height,
+				m_Buffer[0], m_Buffer[1], m_Buffer[2], m_PitchY, m_PitchC,
+				pBuffer->m_Buffer[0], pBuffer->m_Buffer[1], pBuffer->m_Buffer[2],
+				pBuffer->m_PitchY, pBuffer->m_PitchC);
+		}
+		if (pBuffer->m_Subtype == MEDIASUBTYPE_NV12) {
+			return PixelCopyNV12ToI420(
+				m_Width, m_Height,
+				m_Buffer[0], m_Buffer[1], m_Buffer[2], m_PitchY, m_PitchC,
+				pBuffer->m_Buffer[0], pBuffer->m_Buffer[1], pBuffer->m_PitchY);
+		}
+	} else if (m_Subtype == MEDIASUBTYPE_NV12) {
+		if (pBuffer->m_Subtype == MEDIASUBTYPE_NV12) {
+			return PixelCopyNV12ToNV12(
+				m_Width, m_Height,
+				m_Buffer[0], m_Buffer[1], m_PitchY,
+				pBuffer->m_Buffer[0], pBuffer->m_Buffer[1], pBuffer->m_PitchY);
+		}
+		if (pBuffer->m_Subtype == MEDIASUBTYPE_I420 || pBuffer->m_Subtype == MEDIASUBTYPE_IYUV) {
+			return PixelCopyI420ToNV12(
+				m_Width, m_Height,
+				m_Buffer[0], m_Buffer[1], m_PitchY,
+				pBuffer->m_Buffer[0], pBuffer->m_Buffer[1], pBuffer->m_Buffer[2],
+				pBuffer->m_PitchY, pBuffer->m_PitchC);
+		}
+	} else if (m_Subtype == MEDIASUBTYPE_RGB24 || m_Subtype == MEDIASUBTYPE_RGB32) {
+		if (pBuffer->m_Subtype == MEDIASUBTYPE_RGB24 || pBuffer->m_Subtype == MEDIASUBTYPE_RGB32) {
+			return PixelCopyRGBToRGB(
+				m_Width, m_Height,
+				m_Buffer[0], m_PitchY, m_Subtype == MEDIASUBTYPE_RGB24 ? 24 : 32,
+				pBuffer->m_Buffer[0], pBuffer->m_PitchY, pBuffer->m_Subtype == MEDIASUBTYPE_RGB24 ? 24 : 32);
+		}
+	}
+
+	return false;
 }

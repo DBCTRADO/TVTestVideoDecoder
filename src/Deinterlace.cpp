@@ -704,6 +704,15 @@ void DeinterlaceBlendI420(
 	BlendPlane(pDstV, DstPitchC, pSrcV, SrcPitchC, Width / 2, Height / 2);
 }
 
+void DeinterlaceBlendNV12(
+	uint32_t Width, uint32_t Height,
+	uint8_t * restrict pDstY, uint8_t * restrict pDstUV, ptrdiff_t DstPitch,
+	const uint8_t * restrict pSrcY, const uint8_t * restrict pSrcUV, ptrdiff_t SrcPitch)
+{
+	BlendPlane(pDstY, DstPitch, pSrcY, SrcPitch, Width, Height);
+	BlendPlane(pDstUV, DstPitch, pSrcUV, SrcPitch, Width, Height / 2);
+}
+
 void DeinterlaceBob(
 	uint32_t Width, uint32_t Height,
 	uint8_t * restrict pDst, ptrdiff_t DstPitch, const uint8_t * restrict pSrc, ptrdiff_t SrcPitch,
@@ -723,6 +732,16 @@ void DeinterlaceBobI420(
 	BobPlane(pDstY, DstPitchY, pSrcY, SrcPitchY, Width, Height, fTopFiled);
 	BobPlane(pDstU, DstPitchC, pSrcU, SrcPitchC, Width / 2, Height / 2, fTopFiled);
 	BobPlane(pDstV, DstPitchC, pSrcV, SrcPitchC, Width / 2, Height / 2, fTopFiled);
+}
+
+void DeinterlaceBobNV12(
+	uint32_t Width, uint32_t Height,
+	uint8_t * restrict pDstY, uint8_t * restrict pDstUV, ptrdiff_t DstPitch,
+	const uint8_t * restrict pSrcY, const uint8_t * restrict pSrcUV, ptrdiff_t SrcPitch,
+	bool fTopFiled)
+{
+	BobPlane(pDstY, DstPitch, pSrcY, SrcPitch, Width, Height, fTopFiled);
+	BobPlane(pDstUV, DstPitch, pSrcUV, SrcPitch, Width, Height / 2, fTopFiled);
 }
 
 void DeinterlaceELA(
@@ -811,14 +830,29 @@ CDeinterlacer::FrameStatus CDeinterlacer_Blend::GetFrame(
 	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
 	bool fTopFiledFirst, int Field)
 {
-	DeinterlaceBlendI420(
-		pDstBuffer->m_Width, pDstBuffer->m_Height,
-		pDstBuffer->m_Buffer[0], pDstBuffer->m_Buffer[1], pDstBuffer->m_Buffer[2],
-		pDstBuffer->m_PitchY, pDstBuffer->m_PitchC,
-		pSrcBuffer->m_Buffer[0], pSrcBuffer->m_Buffer[1], pSrcBuffer->m_Buffer[2],
-		pSrcBuffer->m_PitchY, pSrcBuffer->m_PitchC);
+	if (pSrcBuffer->m_Subtype == MEDIASUBTYPE_I420 && pDstBuffer->m_Subtype == MEDIASUBTYPE_I420) {
+		DeinterlaceBlendI420(
+			pDstBuffer->m_Width, pDstBuffer->m_Height,
+			pDstBuffer->m_Buffer[0], pDstBuffer->m_Buffer[1], pDstBuffer->m_Buffer[2],
+			pDstBuffer->m_PitchY, pDstBuffer->m_PitchC,
+			pSrcBuffer->m_Buffer[0], pSrcBuffer->m_Buffer[1], pSrcBuffer->m_Buffer[2],
+			pSrcBuffer->m_PitchY, pSrcBuffer->m_PitchC);
+	} else if (pSrcBuffer->m_Subtype == MEDIASUBTYPE_NV12 && pDstBuffer->m_Subtype == MEDIASUBTYPE_NV12) {
+		DeinterlaceBlendNV12(
+			pDstBuffer->m_Width, pDstBuffer->m_Height,
+			pDstBuffer->m_Buffer[0], pDstBuffer->m_Buffer[1],
+			pDstBuffer->m_PitchY,
+			pSrcBuffer->m_Buffer[0], pSrcBuffer->m_Buffer[1],
+			pSrcBuffer->m_PitchY);
+	}
 
 	return FRAME_OK;
+}
+
+bool CDeinterlacer_Blend::IsFormatSupported(const GUID &SrcSubtype, const GUID &DstSubtype) const
+{
+	return (SrcSubtype == MEDIASUBTYPE_I420 && DstSubtype == MEDIASUBTYPE_I420)
+		|| (SrcSubtype == MEDIASUBTYPE_NV12 && DstSubtype == MEDIASUBTYPE_NV12);
 }
 
 
@@ -828,15 +862,31 @@ CDeinterlacer::FrameStatus CDeinterlacer_Bob::GetFrame(
 	CFrameBuffer *pDstBuffer, const CFrameBuffer *pSrcBuffer,
 	bool fTopFiledFirst, int Field)
 {
-	DeinterlaceBobI420(
-		pDstBuffer->m_Width, pDstBuffer->m_Height,
-		pDstBuffer->m_Buffer[0], pDstBuffer->m_Buffer[1], pDstBuffer->m_Buffer[2],
-		pDstBuffer->m_PitchY, pDstBuffer->m_PitchC,
-		pSrcBuffer->m_Buffer[0], pSrcBuffer->m_Buffer[1], pSrcBuffer->m_Buffer[2],
-		pSrcBuffer->m_PitchY, pSrcBuffer->m_PitchC,
-		!fTopFiledFirst);
+	if (pSrcBuffer->m_Subtype == MEDIASUBTYPE_I420 && pDstBuffer->m_Subtype == MEDIASUBTYPE_I420) {
+		DeinterlaceBobI420(
+			pDstBuffer->m_Width, pDstBuffer->m_Height,
+			pDstBuffer->m_Buffer[0], pDstBuffer->m_Buffer[1], pDstBuffer->m_Buffer[2],
+			pDstBuffer->m_PitchY, pDstBuffer->m_PitchC,
+			pSrcBuffer->m_Buffer[0], pSrcBuffer->m_Buffer[1], pSrcBuffer->m_Buffer[2],
+			pSrcBuffer->m_PitchY, pSrcBuffer->m_PitchC,
+			!fTopFiledFirst);
+	} else if (pSrcBuffer->m_Subtype == MEDIASUBTYPE_NV12 && pDstBuffer->m_Subtype == MEDIASUBTYPE_NV12) {
+		DeinterlaceBobNV12(
+			pDstBuffer->m_Width, pDstBuffer->m_Height,
+			pDstBuffer->m_Buffer[0], pDstBuffer->m_Buffer[1],
+			pDstBuffer->m_PitchY,
+			pSrcBuffer->m_Buffer[0], pSrcBuffer->m_Buffer[1],
+			pSrcBuffer->m_PitchY,
+			!fTopFiledFirst);
+	}
 
 	return FRAME_OK;
+}
+
+bool CDeinterlacer_Bob::IsFormatSupported(const GUID &SrcSubtype, const GUID &DstSubtype) const
+{
+	return (SrcSubtype == MEDIASUBTYPE_I420 && DstSubtype == MEDIASUBTYPE_I420)
+		|| (SrcSubtype == MEDIASUBTYPE_NV12 && DstSubtype == MEDIASUBTYPE_NV12);
 }
 
 
