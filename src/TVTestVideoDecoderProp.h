@@ -20,6 +20,7 @@
 
 
 #include "ITVTestVideoDecoder.h"
+#include "COMUtil.h"
 
 
 class __declspec(uuid("9AAE9F7C-6B57-4399-A914-605559F1686A")) CTVTestVideoDecoderProp
@@ -66,7 +67,7 @@ private:
 		DECODER_D3D11
 	};
 
-	ITVTestVideoDecoder *m_pDecoder;
+	COMPointer<ITVTestVideoDecoder> m_Decoder;
 	Settings m_OldSettings;
 	Settings m_NewSettings;
 	bool m_fInitialized;

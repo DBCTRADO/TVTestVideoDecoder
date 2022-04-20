@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@
 #include <mferror.h>
 #include <evr.h>
 #include <vector>
+#include "COMUtil.h"
 
 
 class CBaseVideoFilter;
@@ -89,6 +90,6 @@ public:
 	STDMETHODIMP_(DWORD) GetSurfaceID() override { return m_SurfaceID; }
 
 private:
-	IDirect3DSurface9 *m_pSurface;
+	COMPointer<IDirect3DSurface9> m_Surface;
 	DWORD m_SurfaceID;
 };

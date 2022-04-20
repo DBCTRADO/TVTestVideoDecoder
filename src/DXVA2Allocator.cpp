@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,7 +19,6 @@
 #include "stdafx.h"
 #include "DXVA2Allocator.h"
 #include "BaseVideoFilter.h"
-#include "Util.h"
 #include "MediaTypes.h"
 
 
@@ -44,13 +43,13 @@ HRESULT CDXVA2Allocator::Alloc()
 
 	DBG_TRACE(TEXT("CDXVA2Allocator::Alloc()"));
 
-	if (!m_pFilter->m_pD3D9DeviceManager || !m_pFilter->m_hDXVADevice)
+	if (!m_pFilter->m_D3D9DeviceManager || !m_pFilter->m_hDXVADevice)
 		return E_UNEXPECTED;
 
 	HRESULT hr;
 
 	IDirectXVideoDecoderService *pDecoderService;
-	hr = m_pFilter->m_pD3D9DeviceManager->GetVideoService(
+	hr = m_pFilter->m_D3D9DeviceManager->GetVideoService(
 		m_pFilter->m_hDXVADevice, IID_PPV_ARGS(&pDecoderService));
 	if (FAILED(hr)) {
 		DBG_ERROR(TEXT("IDirect3DDeviceManager9::GetVideoService() failed (%x)"), hr);
@@ -151,7 +150,7 @@ void CDXVA2Allocator::Free()
 
 	IMediaSample *pSample;
 	while ((pSample = m_lFree.RemoveHead()) != nullptr) {
-		delete pSample;
+		delete static_cast<CDXVA2MediaSample *>(pSample);
 	}
 
 	if (!m_SurfaceList.empty()) {
@@ -172,14 +171,12 @@ void CDXVA2Allocator::Free()
 
 CDXVA2MediaSample::CDXVA2MediaSample(CDXVA2Allocator *pAllocator, HRESULT *phr)
 	: CMediaSample(L"DXVA2MediaSample", pAllocator, phr, nullptr, 0)
-	, m_pSurface(nullptr)
 	, m_SurfaceID(0)
 {
 }
 
 CDXVA2MediaSample::~CDXVA2MediaSample()
 {
-	SafeRelease(m_pSurface);
 }
 
 STDMETHODIMP CDXVA2MediaSample::QueryInterface(REFIID riid, void **ppv)
@@ -208,11 +205,7 @@ STDMETHODIMP_(ULONG) CDXVA2MediaSample::Release()
 
 STDMETHODIMP CDXVA2MediaSample::SetSurface(DWORD SurfaceID, IDirect3DSurface9 *pSurface)
 {
-	SafeRelease(m_pSurface);
-
-	m_pSurface = pSurface;
-	if (m_pSurface)
-		m_pSurface->AddRef();
+	m_Surface = pSurface;
 	m_SurfaceID = SurfaceID;
 
 	return S_OK;
@@ -233,8 +226,8 @@ STDMETHODIMP CDXVA2MediaSample::GetService(REFGUID guidService, REFIID riid, LPV
 
 	if (guidService != MR_BUFFER_SERVICE)
 		return MF_E_UNSUPPORTED_SERVICE;
-	if (!m_pSurface)
+	if (!m_Surface)
 		return E_NOINTERFACE;
 
-	return m_pSurface->QueryInterface(riid, ppv);
+	return m_Surface->QueryInterface(riid, ppv);
 }

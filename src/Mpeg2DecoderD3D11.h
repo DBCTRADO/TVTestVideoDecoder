@@ -25,6 +25,7 @@
 #include <dxva.h>
 #include <dxva2api.h>
 #include "Mpeg2Decoder.h"
+#include "COMUtil.h"
 
 
 class CTVTestVideoDecoder;
@@ -44,10 +45,10 @@ public:
 	mpeg2_state_t Parse() override;
 	HRESULT CreateDevice(CTVTestVideoDecoder *pFilter);
 	void CloseDevice();
-	bool IsDeviceCreated() const { return m_pDevice != nullptr; }
+	bool IsDeviceCreated() const { return !!m_Device; }
 	HRESULT CreateDecoder();
 	void CloseDecoder();
-	bool IsDecoderCreated() const { return m_pVideoDecoder != nullptr; }
+	bool IsDecoderCreated() const { return !!m_VideoDecoder; }
 	HRESULT RecreateDecoder();
 	void ResetDecoding();
 	HRESULT DecodeFrame(CFrameBuffer *pFrameBuffer);
@@ -64,23 +65,23 @@ public:
 private:
 	struct SampleInfo
 	{
-		CD3D11MediaSample *pSample = nullptr;
+		COMPointer<CD3D11MediaSample> Sample;
 		UINT ArraySlice = ~0U;
 	};
 
 	static constexpr int MAX_SLICE = 175;
 
 	CTVTestVideoDecoder *m_pFilter;
-	ID3D11Device *m_pDevice;
-	ID3D11DeviceContext *m_pDeviceContext;
-	ID3D11VideoDecoder *m_pVideoDecoder;
+	COMPointer<ID3D11Device> m_Device;
+	COMPointer<ID3D11DeviceContext> m_DeviceContext;
+	COMPointer<ID3D11VideoDecoder> m_VideoDecoder;
 	DXGI_FORMAT m_TextureFormat;
 	GUID m_ProfileID;
 	HMODULE m_hD3D11Lib;
 	HMODULE m_hDXGILib;
 	DXGI_ADAPTER_DESC m_AdapterDesc;
-	CD3D11Allocator *m_pAllocator;
-	ID3D11Texture2D *m_pStagingTexture;
+	COMPointer<CD3D11Allocator> m_Allocator;
+	COMPointer<ID3D11Texture2D> m_StagingTexture;
 
 	bool m_fDeviceLost;
 	DXVA_PictureParameters m_PictureParams;

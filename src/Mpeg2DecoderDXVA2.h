@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #include <dxva2api.h>
 #include <mfapi.h>
 #include "Mpeg2Decoder.h"
+#include "COMUtil.h"
 
 
 class CTVTestVideoDecoder;
@@ -41,7 +42,7 @@ public:
 	void CloseDecoderService();
 	HRESULT CreateDecoder(IDirect3DSurface9 **ppSurface, int SurfaceCount);
 	void CloseDecoder();
-	bool IsDecoderCreated() const { return m_pVideoDecoder != nullptr; }
+	bool IsDecoderCreated() const { return !!m_VideoDecoder; }
 	HRESULT RecreateDecoder();
 	void ResetDecoding();
 	HRESULT DecodeFrame(IMediaSample **ppSample);
@@ -52,16 +53,16 @@ public:
 private:
 	struct SampleInfo
 	{
-		CDXVA2MediaSample *pSample = nullptr;
+		COMPointer<CDXVA2MediaSample> Sample;
 		int SurfaceID = -1;
 	};
 
 	static const int MAX_SLICE = 175;
 
 	CTVTestVideoDecoder *m_pFilter;
-	IDirect3DDeviceManager9 *m_pDeviceManager;
-	IDirectXVideoDecoderService *m_pDecoderService;
-	IDirectXVideoDecoder *m_pVideoDecoder;
+	COMPointer<IDirect3DDeviceManager9> m_DeviceManager;
+	COMPointer<IDirectXVideoDecoderService> m_DecoderService;
+	COMPointer<IDirectXVideoDecoder> m_VideoDecoder;
 	D3DFORMAT m_SurfaceFormat;
 	bool m_fDeviceLost;
 	DXVA_PictureParameters m_PictureParams;

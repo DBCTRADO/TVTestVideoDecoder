@@ -189,6 +189,7 @@
     <ClInclude Include="Blend.h" />
     <ClInclude Include="ColorAdjustment.h" />
     <ClInclude Include="Common.h" />
+    <ClInclude Include="COMUtil.h" />
     <ClInclude Include="Copy.h" />
     <ClInclude Include="D3D11Allocator.h" />
     <ClInclude Include="Deinterlace.h" />

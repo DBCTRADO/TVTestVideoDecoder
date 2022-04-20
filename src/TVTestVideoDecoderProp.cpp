@@ -38,7 +38,6 @@ static void EnableDlgItems(HWND hDlg, int FirstID, int LastID, bool fEnable)
 
 CTVTestVideoDecoderProp::CTVTestVideoDecoderProp(LPUNKNOWN lpunk, HRESULT *phr)
 	: CBasePropertyPage(L"TVTestVideoDecoderProp", lpunk, IDD_PROP, IDS_PROP_TITLE)
-	, m_pDecoder(nullptr)
 	, m_fInitialized(false)
 {
 	if (phr)
@@ -47,8 +46,6 @@ CTVTestVideoDecoderProp::CTVTestVideoDecoderProp(LPUNKNOWN lpunk, HRESULT *phr)
 
 CTVTestVideoDecoderProp::~CTVTestVideoDecoderProp()
 {
-	if (m_pDecoder != nullptr)
-		m_pDecoder->Release();
 }
 
 CUnknown * CALLBACK CTVTestVideoDecoderProp::CreateInstance(LPUNKNOWN punk, HRESULT *phr)
@@ -72,42 +69,41 @@ HRESULT CTVTestVideoDecoderProp::OnConnect(IUnknown *pUnknown)
 {
 	if (pUnknown == nullptr)
 		return E_POINTER;
-	if (m_pDecoder != nullptr)
+	if (m_Decoder)
 		return E_UNEXPECTED;
 
 	ITVTestVideoDecoder *pDecoder;
 	HRESULT hr = pUnknown->QueryInterface(IID_PPV_ARGS(&pDecoder));
 	if (SUCCEEDED(hr))
-		m_pDecoder = pDecoder;
+		m_Decoder.Attach(pDecoder);
 
 	return hr;
 }
 
 HRESULT CTVTestVideoDecoderProp::OnDisconnect()
 {
-	if (m_pDecoder) {
-		m_pDecoder->SetEnableDeinterlace(m_OldSettings.fEnableDeinterlace);
-		m_pDecoder->SetDeinterlaceMethod(m_OldSettings.DeinterlaceMethod);
-		m_pDecoder->SetAdaptProgressive(m_OldSettings.fAdaptProgressive);
-		m_pDecoder->SetAdaptTelecine(m_OldSettings.fAdaptTelecine);
-		m_pDecoder->SetInterlacedFlag(m_OldSettings.fSetInterlacedFlag);
-		m_pDecoder->SetBrightness(m_OldSettings.Brightness);
-		m_pDecoder->SetContrast(m_OldSettings.Contrast);
-		m_pDecoder->SetHue(m_OldSettings.Hue);
-		m_pDecoder->SetSaturation(m_OldSettings.Saturation);
-		m_pDecoder->SetNumThreads(m_OldSettings.NumThreads);
-		m_pDecoder->SetEnableDXVA2(m_OldSettings.fEnableDXVA2);
+	if (m_Decoder) {
+		m_Decoder->SetEnableDeinterlace(m_OldSettings.fEnableDeinterlace);
+		m_Decoder->SetDeinterlaceMethod(m_OldSettings.DeinterlaceMethod);
+		m_Decoder->SetAdaptProgressive(m_OldSettings.fAdaptProgressive);
+		m_Decoder->SetAdaptTelecine(m_OldSettings.fAdaptTelecine);
+		m_Decoder->SetInterlacedFlag(m_OldSettings.fSetInterlacedFlag);
+		m_Decoder->SetBrightness(m_OldSettings.Brightness);
+		m_Decoder->SetContrast(m_OldSettings.Contrast);
+		m_Decoder->SetHue(m_OldSettings.Hue);
+		m_Decoder->SetSaturation(m_OldSettings.Saturation);
+		m_Decoder->SetNumThreads(m_OldSettings.NumThreads);
+		m_Decoder->SetEnableDXVA2(m_OldSettings.fEnableDXVA2);
 
 		ITVTestVideoDecoder2 *pDecoder2;
-		if (SUCCEEDED(m_pDecoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
+		if (SUCCEEDED(m_Decoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
 			pDecoder2->SetEnableD3D11(m_OldSettings.fEnableD3D11);
 			pDecoder2->Release();
 		}
 
-		m_pDecoder->SaveOptions();
+		m_Decoder->SaveOptions();
 
-		m_pDecoder->Release();
-		m_pDecoder = nullptr;
+		m_Decoder.Release();
 	}
 
 	m_fInitialized = false;
@@ -117,23 +113,23 @@ HRESULT CTVTestVideoDecoderProp::OnDisconnect()
 
 HRESULT CTVTestVideoDecoderProp::OnActivate()
 {
-	if (m_pDecoder == nullptr)
+	if (!m_Decoder)
 		return E_UNEXPECTED;
 
-	m_OldSettings.fEnableDeinterlace = m_pDecoder->GetEnableDeinterlace() != FALSE;
-	m_OldSettings.DeinterlaceMethod = m_pDecoder->GetDeinterlaceMethod();
-	m_OldSettings.fAdaptProgressive = m_pDecoder->GetAdaptProgressive() != FALSE;
-	m_OldSettings.fAdaptTelecine = m_pDecoder->GetAdaptTelecine() != FALSE;
-	m_OldSettings.fSetInterlacedFlag = m_pDecoder->GetInterlacedFlag() != FALSE;
-	m_OldSettings.Brightness = m_pDecoder->GetBrightness();
-	m_OldSettings.Contrast = m_pDecoder->GetContrast();
-	m_OldSettings.Hue = m_pDecoder->GetHue();
-	m_OldSettings.Saturation = m_pDecoder->GetSaturation();
-	m_OldSettings.NumThreads = m_pDecoder->GetNumThreads();
-	m_OldSettings.fEnableDXVA2 = m_pDecoder->GetEnableDXVA2() != FALSE;
+	m_OldSettings.fEnableDeinterlace = m_Decoder->GetEnableDeinterlace() != FALSE;
+	m_OldSettings.DeinterlaceMethod = m_Decoder->GetDeinterlaceMethod();
+	m_OldSettings.fAdaptProgressive = m_Decoder->GetAdaptProgressive() != FALSE;
+	m_OldSettings.fAdaptTelecine = m_Decoder->GetAdaptTelecine() != FALSE;
+	m_OldSettings.fSetInterlacedFlag = m_Decoder->GetInterlacedFlag() != FALSE;
+	m_OldSettings.Brightness = m_Decoder->GetBrightness();
+	m_OldSettings.Contrast = m_Decoder->GetContrast();
+	m_OldSettings.Hue = m_Decoder->GetHue();
+	m_OldSettings.Saturation = m_Decoder->GetSaturation();
+	m_OldSettings.NumThreads = m_Decoder->GetNumThreads();
+	m_OldSettings.fEnableDXVA2 = m_Decoder->GetEnableDXVA2() != FALSE;
 
 	ITVTestVideoDecoder2 *pDecoder2;
-	if (SUCCEEDED(m_pDecoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
+	if (SUCCEEDED(m_Decoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
 		m_OldSettings.fEnableD3D11 = pDecoder2->GetEnableD3D11() != FALSE;
 		pDecoder2->Release();
 	} else {
@@ -262,7 +258,7 @@ INT_PTR CTVTestVideoDecoderProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 		switch (LOWORD(wParam)) {
 		case IDC_PROP_DECODER:
 			if (HIWORD(wParam) == CBN_SELCHANGE) {
-				if (m_pDecoder) {
+				if (m_Decoder) {
 					const int Decoder = (int)::SendDlgItemMessage(hwnd, IDC_PROP_DECODER, CB_GETCURSEL, 0, 0);
 					const bool fEnableDXVA2 = Decoder == DECODER_DXVA2;
 					const bool fEnableD3D11 = Decoder == DECODER_D3D11;
@@ -270,9 +266,9 @@ INT_PTR CTVTestVideoDecoderProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 						m_NewSettings.fEnableDXVA2 = fEnableDXVA2;
 						m_NewSettings.fEnableD3D11 = fEnableD3D11;
 #if 0
-						m_pDecoder->SetEnableDXVA2(fEnableDXVA2);
+						m_Decoder->SetEnableDXVA2(fEnableDXVA2);
 						ITVTestVideoDecoder2 *pDecoder2;
-						if (SUCCEEDED(m_pDecoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
+						if (SUCCEEDED(m_Decoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
 							pDecoder2->SetEnableD3D11(fEnableD3D11);
 							pDecoder2->Release();
 						}
@@ -285,12 +281,12 @@ INT_PTR CTVTestVideoDecoderProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 
 		case IDC_PROP_DEINTERLACE_ENABLE:
 		case IDC_PROP_DEINTERLACE_DISABLE:
-			if (m_pDecoder) {
+			if (m_Decoder) {
 				bool fEnableDeinterlace =
 					::IsDlgButtonChecked(hwnd, IDC_PROP_DEINTERLACE_ENABLE) == BST_CHECKED;
 				if (fEnableDeinterlace != m_NewSettings.fEnableDeinterlace) {
 					m_NewSettings.fEnableDeinterlace = fEnableDeinterlace;
-					m_pDecoder->SetEnableDeinterlace(fEnableDeinterlace);
+					m_Decoder->SetEnableDeinterlace(fEnableDeinterlace);
 					MakeDirty();
 					EnableDlgItems(hwnd, IDC_PROP_DEINTERLACE_METHOD_LABEL, IDC_PROP_DEINTERLACE_METHOD,
 								   fEnableDeinterlace);
@@ -304,14 +300,14 @@ INT_PTR CTVTestVideoDecoderProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 			return TRUE;
 
 		case IDC_PROP_DEINTERLACE_METHOD:
-			if (HIWORD(wParam) == CBN_SELCHANGE && m_pDecoder) {
+			if (HIWORD(wParam) == CBN_SELCHANGE && m_Decoder) {
 				TVTVIDEODEC_DeinterlaceMethod DeinterlaceMethod =
 					(TVTVIDEODEC_DeinterlaceMethod)::SendDlgItemMessage(
 						hwnd, IDC_PROP_DEINTERLACE_METHOD, CB_GETCURSEL, 0, 0);
 				if (DeinterlaceMethod >= 0
 						&& DeinterlaceMethod != m_NewSettings.DeinterlaceMethod) {
 					m_NewSettings.DeinterlaceMethod = DeinterlaceMethod;
-					m_pDecoder->SetDeinterlaceMethod(DeinterlaceMethod);
+					m_Decoder->SetDeinterlaceMethod(DeinterlaceMethod);
 					MakeDirty();
 					EnableDlgItems(m_Dlg, IDC_PROP_ADAPT_PROGRESSIVE, IDC_PROP_ADAPT_TELECINE,
 								   m_NewSettings.fEnableDeinterlace
@@ -321,88 +317,88 @@ INT_PTR CTVTestVideoDecoderProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 			return TRUE;
 
 		case IDC_PROP_ADAPT_PROGRESSIVE:
-			if (m_pDecoder) {
+			if (m_Decoder) {
 				bool fAdaptProgressive =
 					::IsDlgButtonChecked(hwnd, IDC_PROP_ADAPT_PROGRESSIVE) == BST_CHECKED;
 				if (fAdaptProgressive != m_NewSettings.fAdaptProgressive) {
 					m_NewSettings.fAdaptProgressive = fAdaptProgressive;
-					m_pDecoder->SetAdaptProgressive(fAdaptProgressive);
+					m_Decoder->SetAdaptProgressive(fAdaptProgressive);
 					MakeDirty();
 				}
 			}
 			return TRUE;
 
 		case IDC_PROP_ADAPT_TELECINE:
-			if (m_pDecoder) {
+			if (m_Decoder) {
 				bool fAdaptTelecine =
 					::IsDlgButtonChecked(hwnd, IDC_PROP_ADAPT_TELECINE) == BST_CHECKED;
 				if (fAdaptTelecine != m_NewSettings.fAdaptTelecine) {
 					m_NewSettings.fAdaptTelecine = fAdaptTelecine;
-					m_pDecoder->SetAdaptTelecine(fAdaptTelecine);
+					m_Decoder->SetAdaptTelecine(fAdaptTelecine);
 					MakeDirty();
 				}
 			}
 			return TRUE;
 
 		case IDC_PROP_SET_INTERLACED_FLAG:
-			if (m_pDecoder) {
+			if (m_Decoder) {
 				bool fSetInterlacedFlag =
 					::IsDlgButtonChecked(hwnd, IDC_PROP_SET_INTERLACED_FLAG) == BST_CHECKED;
 				if (fSetInterlacedFlag != m_NewSettings.fSetInterlacedFlag) {
 					m_NewSettings.fSetInterlacedFlag = fSetInterlacedFlag;
-					m_pDecoder->SetInterlacedFlag(fSetInterlacedFlag);
+					m_Decoder->SetInterlacedFlag(fSetInterlacedFlag);
 					MakeDirty();
 				}
 			}
 			return TRUE;
 
 		case IDC_PROP_BRIGHTNESS:
-			if (HIWORD(wParam) == EN_CHANGE && m_pDecoder && m_fInitialized) {
+			if (HIWORD(wParam) == EN_CHANGE && m_Decoder && m_fInitialized) {
 				BOOL fOK;
 				int Brightness = ::GetDlgItemInt(hwnd, IDC_PROP_BRIGHTNESS, &fOK, TRUE);
 				if (fOK && Brightness != m_NewSettings.Brightness) {
 					::SendDlgItemMessage(hwnd, IDC_PROP_BRIGHTNESS_SLIDER, TBM_SETPOS, TRUE, Brightness);
 					m_NewSettings.Brightness = Brightness;
-					m_pDecoder->SetBrightness(Brightness);
+					m_Decoder->SetBrightness(Brightness);
 					MakeDirty();
 				}
 			}
 			return TRUE;
 
 		case IDC_PROP_CONTRAST:
-			if (HIWORD(wParam) == EN_CHANGE && m_pDecoder && m_fInitialized) {
+			if (HIWORD(wParam) == EN_CHANGE && m_Decoder && m_fInitialized) {
 				BOOL fOK;
 				int Contrast = ::GetDlgItemInt(hwnd, IDC_PROP_CONTRAST, &fOK, TRUE);
 				if (fOK && Contrast != m_NewSettings.Contrast) {
 					::SendDlgItemMessage(hwnd, IDC_PROP_CONTRAST_SLIDER, TBM_SETPOS, TRUE, Contrast);
 					m_NewSettings.Contrast = Contrast;
-					m_pDecoder->SetContrast(Contrast);
+					m_Decoder->SetContrast(Contrast);
 					MakeDirty();
 				}
 			}
 			return TRUE;
 
 		case IDC_PROP_HUE:
-			if (HIWORD(wParam) == EN_CHANGE && m_pDecoder && m_fInitialized) {
+			if (HIWORD(wParam) == EN_CHANGE && m_Decoder && m_fInitialized) {
 				BOOL fOK;
 				int Hue = ::GetDlgItemInt(hwnd, IDC_PROP_HUE, &fOK, TRUE);
 				if (fOK && Hue != m_NewSettings.Hue) {
 					::SendDlgItemMessage(hwnd, IDC_PROP_HUE_SLIDER, TBM_SETPOS, TRUE, Hue);
 					m_NewSettings.Hue = Hue;
-					m_pDecoder->SetHue(Hue);
+					m_Decoder->SetHue(Hue);
 					MakeDirty();
 				}
 			}
 			return TRUE;
 
 		case IDC_PROP_SATURATION:
-			if (HIWORD(wParam) == EN_CHANGE && m_pDecoder && m_fInitialized) {
+			if (HIWORD(wParam) == EN_CHANGE && m_Decoder && m_fInitialized) {
 				BOOL fOK;
 				int Saturation = ::GetDlgItemInt(hwnd, IDC_PROP_SATURATION, &fOK, TRUE);
 				if (fOK && Saturation != m_NewSettings.Saturation) {
 					::SendDlgItemMessage(hwnd, IDC_PROP_SATURATION_SLIDER, TBM_SETPOS, TRUE, Saturation);
 					m_NewSettings.Saturation = Saturation;
-					m_pDecoder->SetSaturation(Saturation);
+					m_Decoder->SetSaturation(Saturation);
 					MakeDirty();
 				}
 			}
@@ -420,11 +416,11 @@ INT_PTR CTVTestVideoDecoderProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 			return TRUE;
 
 		case IDC_PROP_NUM_THREADS:
-			if (HIWORD(wParam) == CBN_SELCHANGE && m_pDecoder) {
+			if (HIWORD(wParam) == CBN_SELCHANGE && m_Decoder) {
 				int NumThreads = (int)::SendDlgItemMessage(hwnd, IDC_PROP_NUM_THREADS, CB_GETCURSEL, 0, 0);
 				if (NumThreads >= 0 && NumThreads != m_NewSettings.NumThreads) {
 					m_NewSettings.NumThreads = NumThreads;
-					m_pDecoder->SetNumThreads(NumThreads);
+					m_Decoder->SetNumThreads(NumThreads);
 					MakeDirty();
 				}
 			}

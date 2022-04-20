@@ -22,6 +22,7 @@
 #include <d3d11.h>
 #include <dxgi.h>
 #include <vector>
+#include "COMUtil.h"
 
 
 class CMpeg2DecoderD3D11;
@@ -44,7 +45,7 @@ public:
 
 private:
 	CMpeg2DecoderD3D11 *m_pDecoder;
-	ID3D11Texture2D *m_pTexture;
+	COMPointer<ID3D11Texture2D> m_Texture;
 	int m_TextureWidth;
 	int m_TextureHeight;
 };
@@ -86,7 +87,7 @@ public:
 	STDMETHODIMP SetVideoDecoderOutputView(ID3D11VideoDecoderOutputView *pView) override;
 
 private:
-	ID3D11Texture2D *m_pTexture;
+	COMPointer<ID3D11Texture2D> m_Texture;
 	UINT m_ArraySlice;
-	ID3D11VideoDecoderOutputView *m_pVideoDecoderOutputView;
+	COMPointer<ID3D11VideoDecoderOutputView> m_VideoDecoderOutputView;
 };

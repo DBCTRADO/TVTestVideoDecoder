@@ -1,6 +1,6 @@
 /*
  *  TVTest DTV Video Decoder
- *  Copyright (C) 2015-2018 DBCTRADO
+ *  Copyright (C) 2015-2022 DBCTRADO
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,9 +42,6 @@ static const D3DFORMAT SurfaceFormatList[] = {
 
 CMpeg2DecoderDXVA2::CMpeg2DecoderDXVA2()
 	: m_pFilter(nullptr)
-	, m_pDeviceManager(nullptr)
-	, m_pDecoderService(nullptr)
-	, m_pVideoDecoder(nullptr)
 	, m_SurfaceFormat(D3DFMT_UNKNOWN)
 	, m_fDeviceLost(false)
 	, m_pSliceBuffer(nullptr)
@@ -121,19 +118,18 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoderService(CTVTestVideoDecoder *pFilter)
 
 	if (!pFilter)
 		return E_POINTER;
-	if (!pFilter->m_pD3D9DeviceManager || !pFilter->m_hDXVADevice)
+	if (!pFilter->m_D3D9DeviceManager || !pFilter->m_hDXVADevice)
 		return E_UNEXPECTED;
 
 	CloseDecoderService();
 
 	m_pFilter = pFilter;
-	m_pDeviceManager = pFilter->m_pD3D9DeviceManager;
-	m_pDeviceManager->AddRef();
+	m_DeviceManager = pFilter->m_D3D9DeviceManager;
 
 	HRESULT hr;
 
 	IDirect3DDevice9 *pDevice;
-	hr = m_pDeviceManager->LockDevice(m_pFilter->m_hDXVADevice, &pDevice, TRUE);
+	hr = m_DeviceManager->LockDevice(m_pFilter->m_hDXVADevice, &pDevice, TRUE);
 	if (SUCCEEDED(hr)) {
 		D3DDEVICE_CREATION_PARAMETERS CreationParams;
 		hr = pDevice->GetCreationParameters(&CreationParams);
@@ -169,20 +165,20 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoderService(CTVTestVideoDecoder *pFilter)
 			}
 		}
 		pDevice->Release();
-		m_pDeviceManager->UnlockDevice(m_pFilter->m_hDXVADevice, FALSE);
+		m_DeviceManager->UnlockDevice(m_pFilter->m_hDXVADevice, FALSE);
 	}
 	if (FAILED(hr)) {
 		::ZeroMemory(&m_AdapterIdentifier, sizeof(m_AdapterIdentifier));
 	}
 
 	IDirectXVideoDecoderService *pDecoderService;
-	hr = m_pDeviceManager->GetVideoService(m_pFilter->m_hDXVADevice, IID_PPV_ARGS(&pDecoderService));
+	hr = m_DeviceManager->GetVideoService(m_pFilter->m_hDXVADevice, IID_PPV_ARGS(&pDecoderService));
 	if (FAILED(hr)) {
 		DBG_ERROR(TEXT("GetVideoService() failed (%x)"), hr);
 		CloseDecoderService();
 		return hr;
 	}
-	m_pDecoderService = pDecoderService;
+	m_DecoderService.Attach(pDecoderService);
 
 	if (!FindDecoder(nullptr, &m_SurfaceFormat, SurfaceFormatList, _countof(SurfaceFormatList))) {
 		CloseDecoderService();
@@ -198,8 +194,8 @@ void CMpeg2DecoderDXVA2::CloseDecoderService()
 
 	CloseDecoder();
 
-	SafeRelease(m_pDecoderService);
-	SafeRelease(m_pDeviceManager);
+	m_DecoderService.Release();
+	m_DeviceManager.Release();
 	m_pFilter = nullptr;
 	m_SurfaceFormat = D3DFMT_UNKNOWN;
 }
@@ -210,7 +206,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 
 	if (!ppSurface)
 		return E_POINTER;
-	if (!m_pFilter || !m_pDecoderService)
+	if (!m_pFilter || !m_DecoderService)
 		return E_UNEXPECTED;
 
 	CloseDecoder();
@@ -238,7 +234,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 
 	UINT Count;
 	DXVA2_ConfigPictureDecode *pConfigs;
-	hr = m_pDecoderService->GetDecoderConfigurations(
+	hr = m_DecoderService->GetDecoderConfigurations(
 		guidDecoder, &VideoDesc, nullptr, &Count, &pConfigs);
 	if (FAILED(hr)) {
 		DBG_ERROR(TEXT("GetDecoderConfigurations() failed (%x)"), hr);
@@ -258,7 +254,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 	}
 
 	IDirectXVideoDecoder *pVideoDecoder;
-	hr = m_pDecoderService->CreateVideoDecoder(
+	hr = m_DecoderService->CreateVideoDecoder(
 		guidDecoder,
 		&VideoDesc,
 		&pConfigs[SelConfig],
@@ -270,7 +266,7 @@ HRESULT CMpeg2DecoderDXVA2::CreateDecoder(IDirect3DSurface9 **ppSurface, int Sur
 		DBG_ERROR(TEXT("CreateVideoDecoder() failed (%x)"), hr);
 		return hr;
 	}
-	m_pVideoDecoder = pVideoDecoder;
+	m_VideoDecoder.Attach(pVideoDecoder);
 
 	return hr;
 }
@@ -281,7 +277,7 @@ void CMpeg2DecoderDXVA2::CloseDecoder()
 
 	ResetDecoding();
 
-	SafeRelease(m_pVideoDecoder);
+	m_VideoDecoder.Release();
 	m_fDeviceLost = false;
 }
 
@@ -289,7 +285,7 @@ HRESULT CMpeg2DecoderDXVA2::RecreateDecoder()
 {
 	DBG_TRACE(TEXT("CMpeg2DecoderDXVA2::RecreateDecoder()"));
 
-	if (!m_pVideoDecoder || !m_pDecoderService)
+	if (!m_VideoDecoder || !m_DecoderService)
 		return E_UNEXPECTED;
 
 	ResetDecoding();
@@ -301,15 +297,15 @@ HRESULT CMpeg2DecoderDXVA2::RecreateDecoder()
 	IDirect3DSurface9 **ppSurface;
 	UINT NumSurfaces;
 
-	hr = m_pVideoDecoder->GetCreationParameters(
+	hr = m_VideoDecoder->GetCreationParameters(
 		&guidDevice, &VideoDesc, &Config, &ppSurface, &NumSurfaces);
 	if (FAILED(hr)) {
 		return hr;
 	}
-	SafeRelease(m_pVideoDecoder);
+	m_VideoDecoder.Release();
 
 	IDirectXVideoDecoder *pVideoDecoder;
-	hr = m_pDecoderService->CreateVideoDecoder(
+	hr = m_DecoderService->CreateVideoDecoder(
 		guidDevice,
 		&VideoDesc,
 		&Config,
@@ -323,7 +319,7 @@ HRESULT CMpeg2DecoderDXVA2::RecreateDecoder()
 	if (FAILED(hr)) {
 		return hr;
 	}
-	m_pVideoDecoder = pVideoDecoder;
+	m_VideoDecoder.Attach(pVideoDecoder);
 
 	return S_OK;
 }
@@ -333,11 +329,11 @@ void CMpeg2DecoderDXVA2::ResetDecoding()
 	DBG_TRACE(TEXT("CMpeg2DecoderDXVA2::ResetDecoding()"));
 
 	for (auto &e: m_Samples) {
-		SafeRelease(e.pSample);
+		e.Sample.Release();
 		e.SurfaceID = -1;
 	}
 	for (auto &e: m_RefSamples) {
-		SafeRelease(e.pSample);
+		e.Sample.Release();
 		e.SurfaceID = -1;
 	}
 
@@ -354,14 +350,14 @@ void CMpeg2DecoderDXVA2::ResetDecoding()
 bool CMpeg2DecoderDXVA2::FindDecoder(
 	GUID *pGuid, D3DFORMAT *pFormat, const D3DFORMAT *pFormatList, int FormatCount)
 {
-	if (!m_pDecoderService)
+	if (!m_DecoderService)
 		return false;
 
 	HRESULT hr;
 
 	UINT DeviceCount;
 	GUID *pGuids;
-	hr = m_pDecoderService->GetDecoderDeviceGuids(&DeviceCount, &pGuids);
+	hr = m_DecoderService->GetDecoderDeviceGuids(&DeviceCount, &pGuids);
 	if (FAILED(hr)) {
 		DBG_ERROR(TEXT("GetDecoderDeviceGuids() failed (%x)"), hr);
 		return false;
@@ -391,12 +387,12 @@ bool CMpeg2DecoderDXVA2::FindDecoder(
 
 int CMpeg2DecoderDXVA2::FindRenderTarget(const GUID &guid, const D3DFORMAT *pFormatList, int FormatCount)
 {
-	if (!m_pDecoderService)
+	if (!m_DecoderService)
 		return -1;
 
 	UINT Count;
 	D3DFORMAT *pFormats;
-	HRESULT hr = m_pDecoderService->GetDecoderRenderTargets(guid, &Count, &pFormats);
+	HRESULT hr = m_DecoderService->GetDecoderRenderTargets(guid, &Count, &pFormats);
 	if (FAILED(hr)) {
 		DBG_ERROR(TEXT("GetDecoderRenderTargets() failed (%x)"), hr);
 		return -1;
@@ -423,7 +419,7 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 		*ppSample = nullptr;
 	}
 
-	if (!m_pDec || !m_pVideoDecoder) {
+	if (!m_pDec || !m_VideoDecoder) {
 		return E_UNEXPECTED;
 	}
 
@@ -446,7 +442,7 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 
 	HRESULT hr;
 
-	hr = m_pDeviceManager->TestDevice(m_pFilter->m_hDXVADevice);
+	hr = m_DeviceManager->TestDevice(m_pFilter->m_hDXVADevice);
 	if (FAILED(hr)) {
 		if (hr == DXVA2_E_NEW_VIDEO_DEVICE) {
 			DBG_TRACE(TEXT("Device lost"));
@@ -475,7 +471,7 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 		break;
 	}
 
-	CDXVA2MediaSample *pSample = m_Samples[m_DecodeSampleIndex].pSample;
+	CDXVA2MediaSample *pSample = m_Samples[m_DecodeSampleIndex].Sample.Get();
 
 	if (!pSample) {
 		IMediaSample *pMediaSample;
@@ -493,14 +489,14 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 			}
 			pSample = static_cast<CDXVA2MediaSample*>(pDXVA2Sample);
 			if (pSample->GetSurfaceID() == m_RefSamples[0].SurfaceID) {
-				m_RefSamples[0].pSample = pSample;
+				m_RefSamples[0].Sample.Attach(pSample);
 			} else if (pSample->GetSurfaceID() == m_RefSamples[1].SurfaceID) {
-				m_RefSamples[1].pSample = pSample;
+				m_RefSamples[1].Sample.Attach(pSample);
 			} else {
 				break;
 			}
 		}
-		m_Samples[m_DecodeSampleIndex].pSample = pSample;
+		m_Samples[m_DecodeSampleIndex].Sample.Attach(pSample);
 		m_Samples[m_DecodeSampleIndex].SurfaceID = pSample->GetSurfaceID();
 	}
 
@@ -530,7 +526,7 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 
 	int Retry = 0;
 	for (;;) {
-		hr = m_pVideoDecoder->BeginFrame(pSurface, nullptr);
+		hr = m_VideoDecoder->BeginFrame(pSurface, nullptr);
 		if (hr != E_PENDING || Retry >= 50)
 			break;
 		::Sleep(2);
@@ -560,20 +556,19 @@ HRESULT CMpeg2DecoderDXVA2::DecodeFrame(IMediaSample **ppSample)
 			ExecParams.pCompressedBuffers = BufferDesc;
 			ExecParams.pExtensionData = nullptr;
 
-			hr = m_pVideoDecoder->Execute(&ExecParams);
+			hr = m_VideoDecoder->Execute(&ExecParams);
 			if (SUCCEEDED(hr)) {
 				hr = GetDisplaySample(ppSample);
 			}
 		}
 
-		m_pVideoDecoder->EndFrame(nullptr);
+		m_VideoDecoder->EndFrame(nullptr);
 	}
 
 	if ((m_pDec->picture->flags & PIC_MASK_CODING_TYPE) != PIC_FLAG_CODING_TYPE_B
 			&& ppSample) {
-		SafeRelease(m_RefSamples[1].pSample);
 		m_RefSamples[1] = m_RefSamples[0];
-		m_RefSamples[0].pSample = nullptr;
+		m_RefSamples[0].Sample.Release();
 		m_RefSamples[0].SurfaceID = m_CurSurfaceIndex;
 	}
 
@@ -588,7 +583,7 @@ HRESULT CMpeg2DecoderDXVA2::CommitBuffers()
 	void *pBuffer;
 	UINT BufferSize;
 
-	hr = m_pVideoDecoder->GetBuffer(DXVA2_PictureParametersBufferType, &pBuffer, &BufferSize);
+	hr = m_VideoDecoder->GetBuffer(DXVA2_PictureParametersBufferType, &pBuffer, &BufferSize);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -597,9 +592,9 @@ HRESULT CMpeg2DecoderDXVA2::CommitBuffers()
 	}
 	GetPictureParams(&m_PictureParams);
 	memcpy(pBuffer, &m_PictureParams, sizeof(DXVA_PictureParameters));
-	m_pVideoDecoder->ReleaseBuffer(DXVA2_PictureParametersBufferType);
+	m_VideoDecoder->ReleaseBuffer(DXVA2_PictureParametersBufferType);
 
-	hr = m_pVideoDecoder->GetBuffer(DXVA2_InverseQuantizationMatrixBufferType, &pBuffer, &BufferSize);
+	hr = m_VideoDecoder->GetBuffer(DXVA2_InverseQuantizationMatrixBufferType, &pBuffer, &BufferSize);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -608,9 +603,9 @@ HRESULT CMpeg2DecoderDXVA2::CommitBuffers()
 	}
 	GetQmatrixData(&m_Qmatrix);
 	memcpy(pBuffer, &m_Qmatrix, sizeof(DXVA_QmatrixData));
-	m_pVideoDecoder->ReleaseBuffer(DXVA2_InverseQuantizationMatrixBufferType);
+	m_VideoDecoder->ReleaseBuffer(DXVA2_InverseQuantizationMatrixBufferType);
 
-	hr = m_pVideoDecoder->GetBuffer(DXVA2_BitStreamDateBufferType, &pBuffer, &BufferSize);
+	hr = m_VideoDecoder->GetBuffer(DXVA2_BitStreamDateBufferType, &pBuffer, &BufferSize);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -618,9 +613,9 @@ HRESULT CMpeg2DecoderDXVA2::CommitBuffers()
 		return E_FAIL;
 	}
 	memcpy(pBuffer, m_pSliceBuffer, m_SliceDataSize);
-	m_pVideoDecoder->ReleaseBuffer(DXVA2_BitStreamDateBufferType);
+	m_VideoDecoder->ReleaseBuffer(DXVA2_BitStreamDateBufferType);
 
-	hr = m_pVideoDecoder->GetBuffer(DXVA2_SliceControlBufferType, &pBuffer, &BufferSize);
+	hr = m_VideoDecoder->GetBuffer(DXVA2_SliceControlBufferType, &pBuffer, &BufferSize);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -628,7 +623,7 @@ HRESULT CMpeg2DecoderDXVA2::CommitBuffers()
 		return E_FAIL;
 	}
 	memcpy(pBuffer, m_SliceInfo, m_SliceCount * sizeof(DXVA_SliceInfo));
-	m_pVideoDecoder->ReleaseBuffer(DXVA2_SliceControlBufferType);
+	m_VideoDecoder->ReleaseBuffer(DXVA2_SliceControlBufferType);
 
 	return S_OK;
 }
@@ -800,9 +795,8 @@ HRESULT CMpeg2DecoderDXVA2::GetDisplaySample(IMediaSample **ppSample)
 		if (!m_fWaitForDisplayKeyFrame) {
 			const int DisplaySampleIndex = GetFBufIndex(m_pDec->info.display_fbuf);
 			if (DisplaySampleIndex >= 0) {
-				*ppSample = m_Samples[DisplaySampleIndex].pSample;
+				*ppSample = m_Samples[DisplaySampleIndex].Sample.Detach();
 				if (*ppSample) {
-					m_Samples[DisplaySampleIndex].pSample = nullptr;
 					hr = S_OK;
 				}
 			}

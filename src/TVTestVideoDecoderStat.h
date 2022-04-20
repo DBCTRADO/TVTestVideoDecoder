@@ -20,6 +20,7 @@
 
 
 #include "ITVTestVideoDecoder.h"
+#include "COMUtil.h"
 
 
 class __declspec(uuid("48749A3E-2680-4833-93AF-8B93914B376F")) CTVTestVideoDecoderStat
@@ -44,7 +45,7 @@ public:
 	INT_PTR OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) override;
 
 private:
-	ITVTestVideoDecoder *m_pDecoder;
+	COMPointer<ITVTestVideoDecoder> m_Decoder;
 	TVTVIDEODEC_Statistics m_Stat;
 
 	~CTVTestVideoDecoderStat();

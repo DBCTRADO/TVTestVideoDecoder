@@ -19,8 +19,6 @@
 #include "stdafx.h"
 #include "D3D11Allocator.h"
 #include "Mpeg2DecoderD3D11.h"
-#include "Util.h"
-#include "MediaTypes.h"
 
 
 // CD3D11Allocator
@@ -28,7 +26,6 @@
 CD3D11Allocator::CD3D11Allocator(CMpeg2DecoderD3D11 *pDecoder, HRESULT *phr)
 	: CBaseAllocator(L"D3D11Allocator", nullptr, phr)
 	, m_pDecoder(pDecoder)
-	, m_pTexture(nullptr)
 	, m_TextureWidth(0)
 	, m_TextureHeight(0)
 {
@@ -45,7 +42,7 @@ HRESULT CD3D11Allocator::Alloc()
 
 	DBG_TRACE(TEXT("CD3D11Allocator::Alloc()"));
 
-	ID3D11Device *pDevice = m_pDecoder->m_pDevice;
+	ID3D11Device *pDevice = m_pDecoder->m_Device.Get();
 
 	if (!pDevice)
 		return E_UNEXPECTED;
@@ -105,7 +102,7 @@ HRESULT CD3D11Allocator::Alloc()
 		if (FAILED(hr)) {
 			DBG_ERROR(TEXT("ID3D11Device::CreateTexture2D() failed (%x)"), hr);
 		} else {
-			m_pTexture = pTexture;
+			m_Texture.Attach(pTexture);
 
 			ID3D11VideoDevice *pVideoDevice = nullptr;
 			hr = pDevice->QueryInterface(IID_PPV_ARGS(&pVideoDevice));
@@ -169,10 +166,10 @@ void CD3D11Allocator::Free()
 
 	IMediaSample *pSample;
 	while ((pSample = m_lFree.RemoveHead()) != nullptr) {
-		delete pSample;
+		delete static_cast<CD3D11MediaSample *>(pSample);
 	}
 
-	SafeRelease(m_pTexture);
+	m_Texture.Release();
 
 	m_lAllocated = 0;
 
@@ -185,16 +182,12 @@ void CD3D11Allocator::Free()
 
 CD3D11MediaSample::CD3D11MediaSample(CD3D11Allocator *pAllocator, HRESULT *phr)
 	: CMediaSample(L"D3D11MediaSample", pAllocator, phr, nullptr, 0)
-	, m_pTexture(nullptr)
 	, m_ArraySlice(0)
-	, m_pVideoDecoderOutputView(nullptr)
 {
 }
 
 CD3D11MediaSample::~CD3D11MediaSample()
 {
-	SafeRelease(m_pTexture);
-	SafeRelease(m_pVideoDecoderOutputView);
 }
 
 STDMETHODIMP CD3D11MediaSample::QueryInterface(REFIID riid, void **ppv)
@@ -230,24 +223,20 @@ STDMETHODIMP CD3D11MediaSample::GetTexture(ID3D11Texture2D **ppTexture, UINT *pA
 	CheckPointer(ppTexture, E_POINTER);
 	CheckPointer(pArraySlice, E_POINTER);
 
-	*ppTexture = m_pTexture;
+	*ppTexture = m_Texture.Get();
 	*pArraySlice = m_ArraySlice;
 
-	if (!m_pTexture)
+	if (!m_Texture)
 		return E_FAIL;
 
-	m_pTexture->AddRef();
+	m_Texture->AddRef();
 
 	return S_OK;
 }
 
 STDMETHODIMP CD3D11MediaSample::SetTexture(ID3D11Texture2D *pTexture, UINT ArraySlice)
 {
-	SafeRelease(m_pTexture);
-
-	m_pTexture = pTexture;
-	if (m_pTexture)
-		m_pTexture->AddRef();
+	m_Texture = pTexture;
 	m_ArraySlice = ArraySlice;
 
 	return S_OK;
@@ -257,23 +246,19 @@ STDMETHODIMP CD3D11MediaSample::GetVideoDecoderOutputView(ID3D11VideoDecoderOutp
 {
 	CheckPointer(ppView, E_POINTER);
 
-	*ppView = m_pVideoDecoderOutputView;
+	*ppView = m_VideoDecoderOutputView.Get();
 
-	if (!m_pVideoDecoderOutputView)
+	if (!m_VideoDecoderOutputView)
 		return E_FAIL;
 
-	m_pVideoDecoderOutputView->AddRef();
+	m_VideoDecoderOutputView->AddRef();
 
 	return S_OK;
 }
 
 STDMETHODIMP CD3D11MediaSample::SetVideoDecoderOutputView(ID3D11VideoDecoderOutputView *pView)
 {
-	SafeRelease(m_pVideoDecoderOutputView);
-
-	m_pVideoDecoderOutputView = pView;
-	if (m_pVideoDecoderOutputView)
-		m_pVideoDecoderOutputView->AddRef();
+	m_VideoDecoderOutputView = pView;
 
 	return S_OK;
 }

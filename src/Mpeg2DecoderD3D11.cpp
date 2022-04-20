@@ -27,16 +27,11 @@
 
 CMpeg2DecoderD3D11::CMpeg2DecoderD3D11()
 	: m_pFilter(nullptr)
-	, m_pDevice(nullptr)
-	, m_pDeviceContext(nullptr)
-	, m_pVideoDecoder(nullptr)
 	, m_TextureFormat(DXGI_FORMAT_UNKNOWN)
 	, m_ProfileID(GUID_NULL)
 	, m_hD3D11Lib(nullptr)
 	, m_hDXGILib(nullptr)
 	, m_AdapterDesc()
-	, m_pAllocator(nullptr)
-	, m_pStagingTexture(nullptr)
 
 	, m_fDeviceLost(false)
 	, m_pSliceBuffer(nullptr)
@@ -175,11 +170,11 @@ HRESULT CMpeg2DecoderD3D11::CreateDevice(CTVTestVideoDecoder *pFilter)
 				if (SUCCEEDED(hr)) {
 					DBG_TRACE(TEXT("D3D11 device feature level : %d.%d"), FeatureLevel >> 12, (FeatureLevel & 0xF00) >> 8);
 
-					m_pDevice = pDevice;
+					m_Device.Attach(pDevice);
 
 					ID3D11DeviceContext *pDeviceContext = nullptr;
-					m_pDevice->GetImmediateContext(&pDeviceContext);
-					m_pDeviceContext = pDeviceContext;
+					m_Device->GetImmediateContext(&pDeviceContext);
+					m_DeviceContext.Attach(pDeviceContext);
 
 					ID3D10Multithread *pMultithread = nullptr;
 					if (SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&pMultithread)))) {
@@ -217,8 +212,19 @@ void CMpeg2DecoderD3D11::CloseDevice()
 
 	CloseDecoder();
 
-	SafeRelease(m_pDeviceContext);
-	SafeRelease(m_pDevice);
+	m_DeviceContext.Release();
+
+#ifdef _DEBUG
+	if (m_Device) {
+		ID3D11Debug *pDebug;
+		if (SUCCEEDED(m_Device->QueryInterface(IID_PPV_ARGS(&pDebug)))) {
+			pDebug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
+			pDebug->Release();
+		}
+	}
+#endif
+
+	m_Device.Release();
 
 	if (m_hD3D11Lib) {
 		::FreeLibrary(m_hD3D11Lib);
@@ -237,13 +243,13 @@ HRESULT CMpeg2DecoderD3D11::CreateDecoder()
 {
 	DBG_TRACE(TEXT("CMpeg2DecoderD3D11::CreateDecoder()"));
 
-	if (!m_pFilter || !m_pDevice)
+	if (!m_pFilter || !m_Device)
 		return E_UNEXPECTED;
 
 	CloseDecoder();
 
 	ID3D11VideoDevice *pVideoDevice = nullptr;
-	HRESULT hr = m_pDevice->QueryInterface(IID_PPV_ARGS(&pVideoDevice));
+	HRESULT hr = m_Device->QueryInterface(IID_PPV_ARGS(&pVideoDevice));
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -295,7 +301,7 @@ HRESULT CMpeg2DecoderD3D11::CreateDecoder()
 				ID3D11VideoDecoder *pVideoDecoder = nullptr;
 				hr = pVideoDevice->CreateVideoDecoder(&DecoderDesc, &DecoderConfig, &pVideoDecoder);
 				if (SUCCEEDED(hr)) {
-					m_pVideoDecoder = pVideoDecoder;
+					m_VideoDecoder.Attach(pVideoDecoder);
 					m_TextureFormat = DecoderDesc.OutputFormat;
 					m_ProfileID = ProfileID;
 				}
@@ -319,7 +325,7 @@ void CMpeg2DecoderD3D11::CloseDecoder()
 
 	ResetDecoding();
 
-	SafeRelease(m_pVideoDecoder);
+	m_VideoDecoder.Release();
 	m_fDeviceLost = false;
 
 	m_TextureFormat = DXGI_FORMAT_UNKNOWN;
@@ -330,37 +336,32 @@ HRESULT CMpeg2DecoderD3D11::RecreateDecoder()
 {
 	DBG_TRACE(TEXT("CMpeg2DecoderD3D11::RecreateDecoder()"));
 
-	if (!m_pVideoDecoder || !m_pDevice)
+	if (!m_VideoDecoder || !m_Device)
 		return E_UNEXPECTED;
 
 	ResetDecoding();
 
 	D3D11_VIDEO_DECODER_DESC DecoderDesc;
 	D3D11_VIDEO_DECODER_CONFIG DecoderConfig;
-	HRESULT hr = m_pVideoDecoder->GetCreationParameters(&DecoderDesc, &DecoderConfig);
+	HRESULT hr = m_VideoDecoder->GetCreationParameters(&DecoderDesc, &DecoderConfig);
 	if (FAILED(hr)) {
 		return hr;
 	}
-	SafeRelease(m_pVideoDecoder);
+	m_VideoDecoder.Release();
 
 	ID3D11VideoDevice *pVideoDevice = nullptr;
-	hr = m_pDevice->QueryInterface(IID_PPV_ARGS(&pVideoDevice));
-	if (FAILED(hr)) {
-		return hr;
-	}
+	hr = m_Device->QueryInterface(IID_PPV_ARGS(&pVideoDevice));
+	if (SUCCEEDED(hr)) {
+		ID3D11VideoDecoder *pVideoDecoder = nullptr;
+		hr = pVideoDevice->CreateVideoDecoder(&DecoderDesc, &DecoderConfig, &pVideoDecoder);
+		if (SUCCEEDED(hr)) {
+			m_VideoDecoder.Attach(pVideoDecoder);
+		}
 
-	ID3D11VideoDecoder *pVideoDecoder = nullptr;
-	hr = pVideoDevice->CreateVideoDecoder(&DecoderDesc, &DecoderConfig, &pVideoDecoder);
-	if (FAILED(hr)) {
 		pVideoDevice->Release();
-		return hr;
 	}
 
-	m_pVideoDecoder = pVideoDecoder;
-
-	pVideoDevice->Release();
-
-	return S_OK;
+	return hr;
 }
 
 void CMpeg2DecoderD3D11::ResetDecoding()
@@ -368,22 +369,22 @@ void CMpeg2DecoderD3D11::ResetDecoding()
 	DBG_TRACE(TEXT("CMpeg2DecoderD3D11::ResetDecoding()"));
 
 	for (auto &e: m_Samples) {
-		SafeRelease(e.pSample);
+		e.Sample.Release();
 		e.ArraySlice = ~0U;
 	}
 	for (auto &e: m_RefSamples) {
-		SafeRelease(e.pSample);
+		e.Sample.Release();
 		e.ArraySlice = ~0U;
 	}
 
 	ClearFrameQueue();
 
-	if (m_pAllocator) {
-		m_pAllocator->Decommit();
-		SafeRelease(m_pAllocator);
+	if (m_Allocator) {
+		m_Allocator->Decommit();
+		m_Allocator.Release();
 	}
 
-	SafeRelease(m_pStagingTexture);
+	m_StagingTexture.Release();
 
 	m_SliceDataSize = 0;
 	m_SliceCount = 0;
@@ -397,7 +398,7 @@ void CMpeg2DecoderD3D11::ResetDecoding()
 
 HRESULT CMpeg2DecoderD3D11::DecodeFrame(CFrameBuffer *pFrameBuffer)
 {
-	if (!m_pDec || !m_pVideoDecoder) {
+	if (!m_pDec || !m_VideoDecoder) {
 		return E_UNEXPECTED;
 	}
 
@@ -418,7 +419,7 @@ HRESULT CMpeg2DecoderD3D11::DecodeFrame(CFrameBuffer *pFrameBuffer)
 		m_fWaitForDecodeKeyFrame = false;
 	}
 
-	HRESULT hr = m_pDevice->GetDeviceRemovedReason();
+	HRESULT hr = m_Device->GetDeviceRemovedReason();
 	if (FAILED(hr)) {
 		DBG_TRACE(TEXT("Device lost"));
 		m_fDeviceLost = true;
@@ -445,33 +446,33 @@ HRESULT CMpeg2DecoderD3D11::DecodeFrame(CFrameBuffer *pFrameBuffer)
 		break;
 	}
 
-	CD3D11MediaSample *pSample = m_Samples[m_DecodeSampleIndex].pSample;
+	CD3D11MediaSample *pSample = m_Samples[m_DecodeSampleIndex].Sample.Get();
 
 	if (!pSample) {
-		if (!m_pAllocator) {
+		if (!m_Allocator) {
 			hr = S_OK;
-			m_pAllocator = DNew_nothrow CD3D11Allocator(this, &hr);
-			if (!m_pAllocator) {
+			CD3D11Allocator *pAllocator = DNew_nothrow CD3D11Allocator(this, &hr);
+			if (!pAllocator) {
 				return E_OUTOFMEMORY;
 			}
 			if (FAILED(hr)) {
-				SafeDelete(m_pAllocator);
+				delete pAllocator;
 				return hr;
 			}
-			m_pAllocator->AddRef();
+			m_Allocator = pAllocator;
 
 			ALLOCATOR_PROPERTIES RequestProperties, ActualProperties;
 			RequestProperties.cBuffers = 8;
 			RequestProperties.cbBuffer = 1;
 			RequestProperties.cbAlign = 1;
 			RequestProperties.cbPrefix = 0;
-			hr = m_pAllocator->SetProperties(&RequestProperties, &ActualProperties);
+			hr = m_Allocator->SetProperties(&RequestProperties, &ActualProperties);
 			if (FAILED(hr)) {
 				DBG_TRACE(TEXT("CD3D11Allocator::SetProperties() failed (%x)"), hr);
 				return hr;
 			}
 
-			hr = m_pAllocator->Commit();
+			hr = m_Allocator->Commit();
 			if (FAILED(hr)) {
 				DBG_TRACE(TEXT("CD3D11Allocator::Commit() failed (%x)"), hr);
 				return hr;
@@ -480,7 +481,7 @@ HRESULT CMpeg2DecoderD3D11::DecodeFrame(CFrameBuffer *pFrameBuffer)
 
 		for (;;) {
 			IMediaSample *pMediaSample = nullptr;
-			hr = m_pAllocator->GetBuffer(&pMediaSample, nullptr, nullptr, 0);
+			hr = m_Allocator->GetBuffer(&pMediaSample, nullptr, nullptr, 0);
 			if (FAILED(hr)) {
 				DBG_TRACE(TEXT("CD3D11Allocator::GetBuffer() failed (%x)"), hr);
 				return hr;
@@ -493,14 +494,14 @@ HRESULT CMpeg2DecoderD3D11::DecodeFrame(CFrameBuffer *pFrameBuffer)
 			}
 			pSample = static_cast<CD3D11MediaSample*>(pD3D11Sample);
 			if (pSample->GetTextureArraySlice() == m_RefSamples[0].ArraySlice) {
-				m_RefSamples[0].pSample = pSample;
+				m_RefSamples[0].Sample.Attach(pSample);
 			} else if (pSample->GetTextureArraySlice() == m_RefSamples[1].ArraySlice) {
-				m_RefSamples[1].pSample = pSample;
+				m_RefSamples[1].Sample.Attach(pSample);
 			} else {
 				break;
 			}
 		}
-		m_Samples[m_DecodeSampleIndex].pSample = pSample;
+		m_Samples[m_DecodeSampleIndex].Sample.Attach(pSample);
 		m_Samples[m_DecodeSampleIndex].ArraySlice = pSample->GetTextureArraySlice();
 	}
 
@@ -518,7 +519,7 @@ HRESULT CMpeg2DecoderD3D11::DecodeFrame(CFrameBuffer *pFrameBuffer)
 #endif
 
 	ID3D11VideoContext *pVideoContext = nullptr;
-	hr = m_pDeviceContext->QueryInterface(IID_PPV_ARGS(&pVideoContext));
+	hr = m_DeviceContext->QueryInterface(IID_PPV_ARGS(&pVideoContext));
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -532,7 +533,7 @@ HRESULT CMpeg2DecoderD3D11::DecodeFrame(CFrameBuffer *pFrameBuffer)
 
 	int Retry = 0;
 	for (;;) {
-		hr = pVideoContext->DecoderBeginFrame(m_pVideoDecoder, pVideoDecoderOutputView, 0, nullptr);
+		hr = pVideoContext->DecoderBeginFrame(m_VideoDecoder.Get(), pVideoDecoderOutputView, 0, nullptr);
 		if ((hr != E_PENDING && hr != D3DERR_WASSTILLDRAWING) || Retry >= 50)
 			break;
 		::Sleep(2);
@@ -558,23 +559,23 @@ HRESULT CMpeg2DecoderD3D11::DecodeFrame(CFrameBuffer *pFrameBuffer)
 			BufferDesc[3].DataSize = m_SliceCount * sizeof(DXVA_SliceInfo);
 			BufferDesc[3].NumMBsInBuffer = NumMBsInBuffer;
 
-			hr = pVideoContext->SubmitDecoderBuffers(m_pVideoDecoder, 4, BufferDesc);
+			hr = pVideoContext->SubmitDecoderBuffers(m_VideoDecoder.Get(), 4, BufferDesc);
 		}
 
-		pVideoContext->DecoderEndFrame(m_pVideoDecoder);
+		pVideoContext->DecoderEndFrame(m_VideoDecoder.Get());
 
 		if (SUCCEEDED(hr)) {
 			hr = GetDisplayFrame(pFrameBuffer);
 		}
 	}
 
+	pVideoDecoderOutputView->Release();
 	pVideoContext->Release();
 
 	if ((m_pDec->picture->flags & PIC_MASK_CODING_TYPE) != PIC_FLAG_CODING_TYPE_B
 			&& pFrameBuffer) {
-		SafeRelease(m_RefSamples[1].pSample);
 		m_RefSamples[1] = m_RefSamples[0];
-		m_RefSamples[0].pSample = nullptr;
+		m_RefSamples[0].Sample.Release();
 		m_RefSamples[0].ArraySlice = m_CurSurfaceIndex;
 	}
 
@@ -583,12 +584,12 @@ HRESULT CMpeg2DecoderD3D11::DecodeFrame(CFrameBuffer *pFrameBuffer)
 
 void CMpeg2DecoderD3D11::UnlockFrame(CFrameBuffer *pFrameBuffer)
 {
-	if (!m_pDeviceContext)
+	if (!m_DeviceContext)
 		return;
 	if (!pFrameBuffer->m_pD3D11Texture)
 		return;
 
-	m_pDeviceContext->Unmap(pFrameBuffer->m_pD3D11Texture, pFrameBuffer->m_D3D11TextureArraySlice);
+	m_DeviceContext->Unmap(pFrameBuffer->m_pD3D11Texture, pFrameBuffer->m_D3D11TextureArraySlice);
 
 	SafeRelease(pFrameBuffer->m_pD3D11Texture);
 }
@@ -603,9 +604,8 @@ HRESULT CMpeg2DecoderD3D11::GetQueuedFrame(CFrameBuffer *pFrameBuffer)
 			const HRESULT hr = GetFrameFromTexture(pFrameBuffer, Frame.m_pD3D11Texture);
 			if (SUCCEEDED(hr)) {
 				pFrameBuffer->CopyAttributesFrom(&Frame);
-			} else {
-				SafeRelease(Frame.m_pD3D11Texture);
 			}
+			SafeRelease(Frame.m_pD3D11Texture);
 			return hr;
 		}
 	}
@@ -652,11 +652,12 @@ bool CMpeg2DecoderD3D11::GetOutputTextureSize(SIZE *pSize) const
 
 HRESULT CMpeg2DecoderD3D11::CommitBuffers(ID3D11VideoContext *pVideoContext)
 {
+	ID3D11VideoDecoder *pVideoDecoder = m_VideoDecoder.Get();
 	HRESULT hr;
 	void *pBuffer;
 	UINT BufferSize;
 
-	hr = pVideoContext->GetDecoderBuffer(m_pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_PICTURE_PARAMETERS, &BufferSize, &pBuffer);
+	hr = pVideoContext->GetDecoderBuffer(pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_PICTURE_PARAMETERS, &BufferSize, &pBuffer);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -665,9 +666,9 @@ HRESULT CMpeg2DecoderD3D11::CommitBuffers(ID3D11VideoContext *pVideoContext)
 	}
 	GetPictureParams(&m_PictureParams);
 	memcpy(pBuffer, &m_PictureParams, sizeof(DXVA_PictureParameters));
-	pVideoContext->ReleaseDecoderBuffer(m_pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_PICTURE_PARAMETERS);
+	pVideoContext->ReleaseDecoderBuffer(pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_PICTURE_PARAMETERS);
 
-	hr = pVideoContext->GetDecoderBuffer(m_pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_INVERSE_QUANTIZATION_MATRIX, &BufferSize, &pBuffer);
+	hr = pVideoContext->GetDecoderBuffer(pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_INVERSE_QUANTIZATION_MATRIX, &BufferSize, &pBuffer);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -676,9 +677,9 @@ HRESULT CMpeg2DecoderD3D11::CommitBuffers(ID3D11VideoContext *pVideoContext)
 	}
 	GetQmatrixData(&m_Qmatrix);
 	memcpy(pBuffer, &m_Qmatrix, sizeof(DXVA_QmatrixData));
-	pVideoContext->ReleaseDecoderBuffer(m_pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_INVERSE_QUANTIZATION_MATRIX);
+	pVideoContext->ReleaseDecoderBuffer(pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_INVERSE_QUANTIZATION_MATRIX);
 
-	hr = pVideoContext->GetDecoderBuffer(m_pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_BITSTREAM, &BufferSize, &pBuffer);
+	hr = pVideoContext->GetDecoderBuffer(pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_BITSTREAM, &BufferSize, &pBuffer);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -686,9 +687,9 @@ HRESULT CMpeg2DecoderD3D11::CommitBuffers(ID3D11VideoContext *pVideoContext)
 		return E_FAIL;
 	}
 	memcpy(pBuffer, m_pSliceBuffer, m_SliceDataSize);
-	pVideoContext->ReleaseDecoderBuffer(m_pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_BITSTREAM);
+	pVideoContext->ReleaseDecoderBuffer(pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_BITSTREAM);
 
-	hr = pVideoContext->GetDecoderBuffer(m_pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_SLICE_CONTROL, &BufferSize, &pBuffer);
+	hr = pVideoContext->GetDecoderBuffer(pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_SLICE_CONTROL, &BufferSize, &pBuffer);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -696,7 +697,7 @@ HRESULT CMpeg2DecoderD3D11::CommitBuffers(ID3D11VideoContext *pVideoContext)
 		return E_FAIL;
 	}
 	memcpy(pBuffer, m_SliceInfo, m_SliceCount * sizeof(DXVA_SliceInfo));
-	pVideoContext->ReleaseDecoderBuffer(m_pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_SLICE_CONTROL);
+	pVideoContext->ReleaseDecoderBuffer(pVideoDecoder, D3D11_VIDEO_DECODER_BUFFER_SLICE_CONTROL);
 
 	return S_OK;
 }
@@ -868,7 +869,7 @@ HRESULT CMpeg2DecoderD3D11::GetDisplayFrame(CFrameBuffer *pFrameBuffer)
 		if (!m_fWaitForDisplayKeyFrame) {
 			const int DisplaySampleIndex = GetFBufIndex(m_pDec->info.display_fbuf);
 			if (DisplaySampleIndex >= 0) {
-				CD3D11MediaSample *pSample = m_Samples[DisplaySampleIndex].pSample;
+				CD3D11MediaSample *pSample = m_Samples[DisplaySampleIndex].Sample.Get();
 				if (pSample) {
 					ID3D11Texture2D *pTexture = nullptr;
 					UINT ArraySlice;
@@ -888,15 +889,19 @@ HRESULT CMpeg2DecoderD3D11::GetDisplayFrame(CFrameBuffer *pFrameBuffer)
 							}
 							m_FrameQueuePos = NextPos;
 						} else {
-							hr = CopySampleTextureToStagingTexture(pTexture, ArraySlice, &m_pStagingTexture);
-							if (SUCCEEDED(hr))
-								hr = GetFrameFromTexture(pFrameBuffer, m_pStagingTexture);
-							pTexture->Release();
+							ID3D11Texture2D *pStagingTexture = m_StagingTexture.Get();
+							hr = CopySampleTextureToStagingTexture(pTexture, ArraySlice, &pStagingTexture);
+							if (SUCCEEDED(hr)) {
+								if (!m_StagingTexture) {
+									m_StagingTexture.Attach(pStagingTexture);
+								}
+								hr = GetFrameFromTexture(pFrameBuffer, pStagingTexture);
+							}
 						}
+						pTexture->Release();
 					}
 
-					pSample->Release();
-					m_Samples[DisplaySampleIndex].pSample = nullptr;
+					m_Samples[DisplaySampleIndex].Sample.Release();
 				}
 			}
 		}
@@ -920,7 +925,7 @@ HRESULT CMpeg2DecoderD3D11::CopySampleTextureToStagingTexture(
 		TextureDesc.MiscFlags = 0;
 
 		ID3D11Texture2D *pStagingTexture = nullptr;
-		const HRESULT hr = m_pDevice->CreateTexture2D(&TextureDesc, nullptr, &pStagingTexture);
+		const HRESULT hr = m_Device->CreateTexture2D(&TextureDesc, nullptr, &pStagingTexture);
 		if (FAILED(hr)) {
 			DBG_TRACE(TEXT("ID3DDevice::CreateTexture2D() failed (%x)"), hr);
 			return hr;
@@ -928,7 +933,7 @@ HRESULT CMpeg2DecoderD3D11::CopySampleTextureToStagingTexture(
 		*ppStagingTexture = pStagingTexture;
 	}
 
-	m_pDeviceContext->CopySubresourceRegion(
+	m_DeviceContext->CopySubresourceRegion(
 		*ppStagingTexture, 0, 0, 0, 0, pTexture, SrcArraySlice, nullptr);
 
 	return S_OK;
@@ -940,7 +945,7 @@ HRESULT CMpeg2DecoderD3D11::GetFrameFromTexture(CFrameBuffer *pFrameBuffer, ID3D
 	CheckPointer(pTexture, E_POINTER);
 
 	D3D11_MAPPED_SUBRESOURCE Mapped;
-	HRESULT hr = m_pDeviceContext->Map(pTexture, 0, D3D11_MAP_READ, 0, &Mapped);
+	HRESULT hr = m_DeviceContext->Map(pTexture, 0, D3D11_MAP_READ, 0, &Mapped);
 	if (FAILED(hr)) {
 		DBG_TRACE(TEXT("ID3DDeviceContext::Map() failed (%x)"), hr);
 		return hr;

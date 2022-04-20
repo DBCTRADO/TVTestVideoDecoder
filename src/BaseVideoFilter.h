@@ -26,6 +26,7 @@
 #include <mferror.h>
 #include <evr.h>
 #include "FrameBuffer.h"
+#include "COMUtil.h"
 
 
 class CDXVA2Allocator;
@@ -99,9 +100,9 @@ protected:
 	VideoDimensions m_OutDimensions;
 	VideoDimensions m_MediaDimensions;
 
-	IDirect3DDeviceManager9 *m_pD3D9DeviceManager;
+	COMPointer<IDirect3DDeviceManager9> m_D3D9DeviceManager;
 	HANDLE m_hDXVADevice;
-	CDXVA2Allocator *m_pDXVA2Allocator;
+	COMPointer<CDXVA2Allocator> m_DXVA2Allocator;
 	bool m_fDXVAConnect;
 	bool m_fDXVAOutput;
 	bool m_fAttachMediaType;

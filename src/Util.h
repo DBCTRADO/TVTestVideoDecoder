@@ -35,14 +35,6 @@ template<typename T> inline void SafeDeleteArray(T *&p)
 	}
 }
 
-template<typename T> inline void SafeRelease(T *&p)
-{
-	if (p) {
-		p->Release();
-		p = nullptr;
-	}
-}
-
 inline int PopCount(uint32_t v)
 {
 	// return _mm_popcnt_u32(v);
