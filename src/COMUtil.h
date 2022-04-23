@@ -22,6 +22,9 @@
 #include <objbase.h>
 
 
+#define IDD_PPV_ARGS_IUNKNOWN(ppUnknown) IID_IUnknown, IUnknownPP(ppUnknown)
+inline void ** IUnknownPP(IUnknown **ppUnknown) { return reinterpret_cast<void**>(ppUnknown); }
+
 template<typename T> inline void SafeRelease(T *&p)
 {
 	if (p != nullptr) {
