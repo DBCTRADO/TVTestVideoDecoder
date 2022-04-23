@@ -746,6 +746,10 @@ HRESULT CTVTestVideoDecoder::Transform(IMediaSample *pIn)
 					Buffer.CopyAttributesFrom(&m_FrameBuffer);
 					hr = pD3D11Decoder->DecodeFrame(&Buffer);
 					if (hr == S_OK && Buffer.m_Buffer[0]) {
+						if (m_fCrop1088To1080 && Buffer.m_Height == 1088) {
+							Buffer.m_Height = 1080;
+						}
+
 						hr = DeliverFrame(&Buffer);
 						pD3D11Decoder->UnlockFrame(&Buffer);
 						if (FAILED(hr)) {
