@@ -103,6 +103,9 @@ HRESULT CTVTestVideoDecoderStat::OnActivate()
 #ifdef TVTVIDEODEC_VERSION_STATUS
 					  L"-" LTEXT(TVTVIDEODEC_VERSION_STATUS)
 #endif
+#ifdef TVTVIDEODEC_VERSION_HASH
+					  L" (" LTEXT(TVTVIDEODEC_VERSION_HASH) L")"
+#endif
 					  );
 
 	::SetTimer(m_Dlg, 1, 500, nullptr);

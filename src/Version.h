@@ -22,3 +22,9 @@
 #define TVTVIDEODEC_VERSION_MINOR  4
 #define TVTVIDEODEC_VERSION_REV    0
 #define TVTVIDEODEC_VERSION_STATUS "beta"
+
+#ifndef RC_INVOKED
+#if __has_include("VersionHash.h")
+#include "VersionHash.h"
+#endif
+#endif
