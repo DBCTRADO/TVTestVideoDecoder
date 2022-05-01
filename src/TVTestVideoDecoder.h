@@ -34,10 +34,50 @@
 #define REGISTRY_PARENT_KEY_NAME L"Software\\DBCTRADO"
 #define REGISTRY_KEY_NAME        REGISTRY_PARENT_KEY_NAME L"\\" TVTVIDEODEC_FILTER_NAME
 
+class CPropertyBagReadWrite
+	: public IPropertyBag
+{
+public:
+	STDMETHODIMP Read(LPCOLESTR pszPropName, VARIANT *pVar, IErrorLog *pErrorLog) override
+	{
+		return PropertyBag_Read(pszPropName, pVar, pErrorLog);
+	}
+
+	STDMETHODIMP Write(LPCOLESTR pszPropName, VARIANT *pVar) override
+	{
+		return PropertyBag_Write(pszPropName, pVar);
+	}
+
+protected:
+	virtual HRESULT PropertyBag_Read(LPCOLESTR pszPropName, VARIANT *pVar, IErrorLog *pErrorLog) = 0;
+	virtual HRESULT PropertyBag_Write(LPCOLESTR pszPropName, VARIANT *pVar) = 0;
+};
+
+class CPropertyBag2ReadWrite
+	: public IPropertyBag2
+{
+public:
+	STDMETHODIMP Read(ULONG cProperties, PROPBAG2 *pPropBag, IErrorLog *pErrLog, VARIANT *pvarValue, HRESULT *phrError) override
+	{
+		return PropertyBag2_Read(cProperties, pPropBag, pErrLog, pvarValue, phrError);
+	}
+
+	STDMETHODIMP Write(ULONG cProperties, PROPBAG2 *pPropBag, VARIANT *pvarValue) override
+	{
+		return PropertyBag2_Write(cProperties, pPropBag, pvarValue);
+	}
+
+protected:
+	virtual HRESULT PropertyBag2_Read(ULONG cProperties, PROPBAG2 *pPropBag, IErrorLog *pErrLog, VARIANT *pvarValue, HRESULT *phrError) = 0;
+	virtual HRESULT PropertyBag2_Write(ULONG cProperties, PROPBAG2 *pPropBag, VARIANT *pvarValue) = 0;
+};
+
 class CTVTestVideoDecoder
 	: public CBaseVideoFilter
 	, public ITVTestVideoDecoder2
 	, public ISpecifyPropertyPages2
+	, public CPropertyBagReadWrite
+	, public CPropertyBag2ReadWrite
 	, protected CDeinterlacerSet
 {
 	friend class CMpeg2DecoderDXVA2;
@@ -77,6 +117,12 @@ public:
 // ISpecifyPropertyPages2
 
 	STDMETHODIMP CreatePage(const GUID &guid, IPropertyPage **ppPage) override;
+
+// IPropertyBag2
+
+	STDMETHODIMP CountProperties(ULONG *pcProperties) override;
+	STDMETHODIMP GetPropertyInfo(ULONG iProperty, ULONG cProperties, PROPBAG2 *pPropBag, ULONG *pcProperties) override;
+	STDMETHODIMP LoadObject(LPCOLESTR pstrName, DWORD dwHint, IUnknown *pUnkObject, IErrorLog *pErrLog) override;
 
 // ITVTestVideoDecoder
 
@@ -178,6 +224,16 @@ private:
 	HRESULT OnDXVA2Connect(IPin *pPin) override;
 	HRESULT OnDXVA2SurfaceCreated(IDirect3DSurface9 **ppSurface, int SurfaceCount) override;
 	HRESULT OnDXVA2AllocatorDecommit() override;
+
+// CPropertyBagReadWrite
+
+	STDMETHODIMP PropertyBag_Read(LPCOLESTR pszPropName, VARIANT *pVar, IErrorLog *pErrorLog) override;
+	STDMETHODIMP PropertyBag_Write(LPCOLESTR pszPropName, VARIANT *pVar) override;
+
+// CPropertyBag2ReadWrite
+
+	STDMETHODIMP PropertyBag2_Read(ULONG cProperties, PROPBAG2 *pPropBag, IErrorLog *pErrLog, VARIANT *pvarValue, HRESULT *phrError) override;
+	STDMETHODIMP PropertyBag2_Write(ULONG cProperties, PROPBAG2 *pPropBag, VARIANT *pvarValue) override;
 };
 
 class CMpeg2DecoderInputPin

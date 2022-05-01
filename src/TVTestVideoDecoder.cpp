@@ -46,6 +46,30 @@
 #define KEY_NumThreads        L"NumThreads"
 #define KEY_EnableDXVA2       L"EnableDXVA2"
 #define KEY_EnableD3D11       L"EnableD3D11"
+#define KEY_NumQueueFrames    L"NumQueueFrames"
+
+
+struct PropertyInfo
+{
+	LPCWSTR pszName;
+	VARTYPE Type;
+};
+
+static const PropertyInfo g_PropertyList[] = {
+	{KEY_EnableDeinterlace, VT_BOOL},
+	{KEY_DeinterlaceMethod, VT_INT},
+	{KEY_AdaptProgressive,  VT_BOOL},
+	{KEY_AdaptTelecine,     VT_BOOL},
+	{KEY_SetInterlacedFlag, VT_BOOL},
+	{KEY_Brightness,        VT_INT},
+	{KEY_Contrast,          VT_INT},
+	{KEY_Hue,               VT_INT},
+	{KEY_Saturation,        VT_INT},
+	{KEY_NumThreads,        VT_INT},
+	{KEY_EnableDXVA2,       VT_BOOL},
+	{KEY_EnableD3D11,       VT_BOOL},
+	{KEY_NumQueueFrames,    VT_INT},
+};
 
 
 static bool RegReadDWORD(HKEY hKey, LPCTSTR pszName, DWORD *pValue)
@@ -141,6 +165,10 @@ STDMETHODIMP CTVTestVideoDecoder::NonDelegatingQueryInterface(REFIID riid, void 
 		return GetInterface(static_cast<ISpecifyPropertyPages*>(this), ppv);
 	if (riid == __uuidof(ISpecifyPropertyPages2))
 		return GetInterface(static_cast<ISpecifyPropertyPages2*>(this), ppv);
+	if (riid == __uuidof(IPropertyBag))
+		return GetInterface(static_cast<IPropertyBag*>(this), ppv);
+	if (riid == __uuidof(IPropertyBag2))
+		return GetInterface(static_cast<IPropertyBag2*>(this), ppv);
 
 	return __super::NonDelegatingQueryInterface(riid, ppv);
 }
@@ -1270,6 +1298,59 @@ STDMETHODIMP CTVTestVideoDecoder::CreatePage(const GUID &guid, IPropertyPage **p
 	return S_OK;
 }
 
+// IPropertyBag2
+
+STDMETHODIMP CTVTestVideoDecoder::CountProperties(ULONG *pcProperties)
+{
+	CheckPointer(pcProperties, E_POINTER);
+
+	*pcProperties = _countof(g_PropertyList);
+	return S_OK;
+}
+
+STDMETHODIMP CTVTestVideoDecoder::GetPropertyInfo(ULONG iProperty, ULONG cProperties, PROPBAG2 *pPropBag, ULONG *pcProperties)
+{
+	CheckPointer(pcProperties, E_POINTER);
+
+	*pcProperties = 0;
+
+	if (iProperty >= _countof(g_PropertyList) || cProperties == 0) {
+		return E_INVALIDARG;
+	}
+
+	CheckPointer(pPropBag, E_POINTER);
+
+	const ULONG Count = min(static_cast<ULONG>(_countof(g_PropertyList) - iProperty), cProperties);
+
+	::ZeroMemory(pPropBag, Count * sizeof(PROPBAG2));
+
+	for (ULONG i = 0; i < Count; i++) {
+		const PropertyInfo &Info = g_PropertyList[i + iProperty];
+		PROPBAG2 &Prop = pPropBag[i];
+
+		Prop.dwType = PROPBAG2_TYPE_DATA;
+		Prop.vt = Info.Type;
+		Prop.pstrName = static_cast<LPOLESTR>(::CoTaskMemAlloc((::lstrlenW(Info.pszName) + 1) * sizeof(OLECHAR)));
+		if (!Prop.pstrName) {
+			for (; i > 0; i--) {
+				::CoTaskMemFree(pPropBag[i - 1].pstrName);
+				pPropBag[i - 1].pstrName = nullptr;
+			}
+			return E_OUTOFMEMORY;
+		}
+		::lstrcpyW(Prop.pstrName, Info.pszName);
+	}
+
+	*pcProperties = Count;
+
+	return S_OK;
+}
+
+STDMETHODIMP CTVTestVideoDecoder::LoadObject(LPCOLESTR pstrName, DWORD dwHint, IUnknown *pUnkObject, IErrorLog *pErrLog)
+{
+	return E_NOTIMPL;
+}
+
 // ITVTestVideoDecoder
 
 STDMETHODIMP CTVTestVideoDecoder::SetEnableDeinterlace(BOOL fEnable)
@@ -1626,6 +1707,175 @@ STDMETHODIMP CTVTestVideoDecoder::SetNumQueueFrames(UINT NumFrames)
 STDMETHODIMP_(UINT) CTVTestVideoDecoder::GetNumQueueFrames()
 {
 	return m_NumQueueFrames;
+}
+
+STDMETHODIMP CTVTestVideoDecoder::PropertyBag_Read(LPCOLESTR pszPropName, VARIANT *pVar, IErrorLog *pErrorLog)
+{
+	CheckPointer(pszPropName, E_POINTER);
+	CheckPointer(pVar, E_POINTER);
+
+	VARIANT Var;
+
+	if (::lstrcmpiW(pszPropName, KEY_EnableDeinterlace) == 0) {
+		Var.vt = VT_BOOL;
+		Var.boolVal = m_fEnableDeinterlace ? VARIANT_TRUE : VARIANT_FALSE;
+	} else if (::lstrcmpiW(pszPropName, KEY_DeinterlaceMethod) == 0) {
+		Var.vt = VT_INT;
+		Var.intVal = static_cast<int>(m_DeinterlaceMethod);
+	} else if (::lstrcmpiW(pszPropName, KEY_AdaptProgressive) == 0) {
+		Var.vt = VT_BOOL;
+		Var.boolVal = m_fAdaptProgressive ? VARIANT_TRUE : VARIANT_FALSE;
+	} else if (::lstrcmpiW(pszPropName, KEY_AdaptTelecine) == 0) {
+		Var.vt = VT_BOOL;
+		Var.boolVal = m_fAdaptTelecine ? VARIANT_TRUE : VARIANT_FALSE;
+	} else if (::lstrcmpiW(pszPropName, KEY_SetInterlacedFlag) == 0) {
+		Var.vt = VT_BOOL;
+		Var.boolVal = m_fSetInterlacedFlag ? VARIANT_TRUE : VARIANT_FALSE;
+	} else if (::lstrcmpiW(pszPropName, KEY_Brightness) == 0) {
+		Var.vt = VT_INT;
+		Var.intVal = m_Brightness;
+	} else if (::lstrcmpiW(pszPropName, KEY_Contrast) == 0) {
+		Var.vt = VT_INT;
+		Var.intVal = m_Contrast;
+	} else if (::lstrcmpiW(pszPropName, KEY_Hue) == 0) {
+		Var.vt = VT_INT;
+		Var.intVal = m_Hue;
+	} else if (::lstrcmpiW(pszPropName, KEY_Saturation) == 0) {
+		Var.vt = VT_INT;
+		Var.intVal = m_Saturation;
+	} else if (::lstrcmpiW(pszPropName, KEY_NumThreads) == 0) {
+		Var.vt = VT_INT;
+		Var.intVal = m_NumThreads;
+	} else if (::lstrcmpiW(pszPropName, KEY_EnableDXVA2) == 0) {
+		Var.vt = VT_BOOL;
+		Var.boolVal = m_fDXVA2Decode ? VARIANT_TRUE : VARIANT_FALSE;
+	} else if (::lstrcmpiW(pszPropName, KEY_EnableD3D11) == 0) {
+		Var.vt = VT_BOOL;
+		Var.boolVal = m_fD3D11Decode ? VARIANT_TRUE : VARIANT_FALSE;
+	} else if (::lstrcmpiW(pszPropName, KEY_NumQueueFrames) == 0) {
+		Var.vt = VT_INT;
+		Var.intVal = m_NumQueueFrames;
+	} else {
+		return E_INVALIDARG;
+	}
+
+	if (pVar->vt == VT_EMPTY) {
+		*pVar = Var;
+		return S_OK;
+	}
+
+	return ::VariantChangeType(pVar, &Var, 0, pVar->vt);
+}
+
+STDMETHODIMP CTVTestVideoDecoder::PropertyBag_Write(LPCOLESTR pszPropName, VARIANT *pVar)
+{
+	CheckPointer(pszPropName, E_POINTER);
+	CheckPointer(pVar, E_POINTER);
+
+	VARIANT Var;
+
+	::VariantInit(&Var);
+	HRESULT hr = ::VariantCopy(&Var, pVar);
+	if (FAILED(hr)) {
+		return hr;
+	}
+
+	auto ChangeType =
+		[&Var](VARTYPE Type) -> HRESULT
+		{
+			if (Var.vt == Type)
+				return S_OK;
+			return ::VariantChangeType(&Var, &Var, 0, Type);
+		};
+
+	if (::lstrcmpiW(pszPropName, KEY_EnableDeinterlace) == 0) {
+		hr = ChangeType(VT_BOOL);
+		if (SUCCEEDED(hr))
+			SetEnableDeinterlace(Var.boolVal != VARIANT_FALSE);
+	} else if (::lstrcmpiW(pszPropName, KEY_DeinterlaceMethod) == 0) {
+		hr = ChangeType(VT_INT);
+		if (SUCCEEDED(hr))
+			SetDeinterlaceMethod(static_cast<TVTVIDEODEC_DeinterlaceMethod>(Var.intVal));
+	} else if (::lstrcmpiW(pszPropName, KEY_AdaptProgressive) == 0) {
+		hr = ChangeType(VT_BOOL);
+		if (SUCCEEDED(hr))
+			SetAdaptProgressive(Var.boolVal != VARIANT_FALSE);
+	} else if (::lstrcmpiW(pszPropName, KEY_AdaptTelecine) == 0) {
+		hr = ChangeType(VT_BOOL);
+		if (SUCCEEDED(hr))
+			SetAdaptTelecine(Var.boolVal != VARIANT_FALSE);
+	} else if (::lstrcmpiW(pszPropName, KEY_SetInterlacedFlag) == 0) {
+		hr = ChangeType(VT_BOOL);
+		if (SUCCEEDED(hr))
+			SetInterlacedFlag(Var.boolVal != VARIANT_FALSE);
+	} else if (::lstrcmpiW(pszPropName, KEY_Brightness) == 0) {
+		hr = ChangeType(VT_INT);
+		if (SUCCEEDED(hr))
+			SetBrightness(Var.intVal);
+	} else if (::lstrcmpiW(pszPropName, KEY_Contrast) == 0) {
+		hr = ChangeType(VT_INT);
+		if (SUCCEEDED(hr))
+			SetContrast(Var.intVal);
+	} else if (::lstrcmpiW(pszPropName, KEY_Hue) == 0) {
+		hr = ChangeType(VT_INT);
+		if (SUCCEEDED(hr))
+			SetHue(Var.intVal);
+	} else if (::lstrcmpiW(pszPropName, KEY_Saturation) == 0) {
+		hr = ChangeType(VT_INT);
+		if (SUCCEEDED(hr))
+			SetSaturation(Var.intVal);
+	} else if (::lstrcmpiW(pszPropName, KEY_NumThreads) == 0) {
+		hr = ChangeType(VT_INT);
+		if (SUCCEEDED(hr))
+			SetNumThreads(Var.intVal);
+	} else if (::lstrcmpiW(pszPropName, KEY_EnableDXVA2) == 0) {
+		hr = ChangeType(VT_BOOL);
+		if (SUCCEEDED(hr))
+			SetEnableDXVA2(Var.boolVal != VARIANT_FALSE);
+	} else if (::lstrcmpiW(pszPropName, KEY_EnableD3D11) == 0) {
+		hr = ChangeType(VT_BOOL);
+		if (SUCCEEDED(hr))
+			SetEnableD3D11(Var.boolVal != VARIANT_FALSE);
+	} else if (::lstrcmpiW(pszPropName, KEY_NumQueueFrames) == 0) {
+		hr = ChangeType(VT_INT);
+		if (SUCCEEDED(hr))
+			SetNumQueueFrames(Var.intVal);
+	} else {
+		hr = E_INVALIDARG;
+	}
+
+	return hr;
+}
+
+STDMETHODIMP CTVTestVideoDecoder::PropertyBag2_Read(
+	ULONG cProperties, PROPBAG2 *pPropBag, IErrorLog *pErrLog, VARIANT *pvarValue, HRESULT *phrError)
+{
+	CheckPointer(pPropBag, E_POINTER);
+	CheckPointer(pvarValue, E_POINTER);
+	CheckPointer(phrError, E_POINTER);
+
+	for (ULONG i = 0; i < cProperties; i++) {
+		const PROPBAG2 &Prop = pPropBag[i];
+		VARIANT &Var = pvarValue[i];
+
+		Var.vt = Prop.vt;
+		phrError[i] = PropertyBag_Read(Prop.pstrName, &Var, nullptr);
+	}
+
+	return S_OK;
+}
+
+STDMETHODIMP CTVTestVideoDecoder::PropertyBag2_Write(
+	ULONG cProperties, PROPBAG2 *pPropBag, VARIANT *pvarValue)
+{
+	CheckPointer(pPropBag, E_POINTER);
+	CheckPointer(pvarValue, E_POINTER);
+
+	for (ULONG i = 0; i < cProperties; i++) {
+		PropertyBag_Write(pPropBag[i].pstrName, &pvarValue[i]);
+	}
+
+	return S_OK;
 }
 
 
