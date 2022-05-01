@@ -1552,6 +1552,8 @@ STDMETHODIMP CTVTestVideoDecoder::LoadOptions()
 		SetEnableDXVA2(Value != 0);
 	if (RegReadDWORD(hKey, KEY_EnableD3D11, &Value))
 		SetEnableD3D11(Value != 0);
+	if (RegReadDWORD(hKey, KEY_NumQueueFrames, &Value))
+		SetNumQueueFrames((int)Value);
 
 	::RegCloseKey(hKey);
 
@@ -1587,6 +1589,7 @@ STDMETHODIMP CTVTestVideoDecoder::SaveOptions()
 	RegWriteDWORD(hKey, KEY_NumThreads, (DWORD)m_NumThreads);
 	RegWriteDWORD(hKey, KEY_EnableDXVA2, m_fDXVA2Decode);
 	RegWriteDWORD(hKey, KEY_EnableD3D11, m_fD3D11Decode);
+	RegWriteDWORD(hKey, KEY_NumQueueFrames, (DWORD)m_NumQueueFrames);
 
 	::RegCloseKey(hKey);
 

@@ -59,6 +59,7 @@ private:
 		int NumThreads;
 		bool fEnableDXVA2;
 		bool fEnableD3D11;
+		int NumQueueFrames;
 	};
 
 	enum {

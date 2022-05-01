@@ -98,6 +98,7 @@ HRESULT CTVTestVideoDecoderProp::OnDisconnect()
 		ITVTestVideoDecoder2 *pDecoder2;
 		if (SUCCEEDED(m_Decoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
 			pDecoder2->SetEnableD3D11(m_OldSettings.fEnableD3D11);
+			pDecoder2->SetNumQueueFrames(m_OldSettings.NumQueueFrames);
 			pDecoder2->Release();
 		}
 
@@ -131,9 +132,11 @@ HRESULT CTVTestVideoDecoderProp::OnActivate()
 	ITVTestVideoDecoder2 *pDecoder2;
 	if (SUCCEEDED(m_Decoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
 		m_OldSettings.fEnableD3D11 = pDecoder2->GetEnableD3D11() != FALSE;
+		m_OldSettings.NumQueueFrames = pDecoder2->GetNumQueueFrames();
 		pDecoder2->Release();
 	} else {
 		m_OldSettings.fEnableD3D11 = false;
+		m_OldSettings.NumQueueFrames = 2;
 	}
 
 	m_NewSettings = m_OldSettings;
@@ -239,6 +242,12 @@ HRESULT CTVTestVideoDecoderProp::OnActivate()
 		::SendDlgItemMessage(m_Dlg, IDC_PROP_NUM_THREADS, CB_ADDSTRING, 0, (LPARAM)szText);
 	}
 	::SendDlgItemMessage(m_Dlg, IDC_PROP_NUM_THREADS, CB_SETCURSEL, m_OldSettings.NumThreads, 0);
+
+	for (int i = 0; i <= TVTVIDEODEC_MAX_QUEUE_FRAMES; i++) {
+		::wsprintf(szText, TEXT("%d"), i);
+		::SendDlgItemMessage(m_Dlg, IDC_PROP_NUM_QUEUE_FRAMES, CB_ADDSTRING, 0, (LPARAM)szText);
+	}
+	::SendDlgItemMessage(m_Dlg, IDC_PROP_NUM_QUEUE_FRAMES, CB_SETCURSEL, m_OldSettings.NumQueueFrames, 0);
 
 	m_fInitialized = true;
 
@@ -421,6 +430,23 @@ INT_PTR CTVTestVideoDecoderProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM w
 				if (NumThreads >= 0 && NumThreads != m_NewSettings.NumThreads) {
 					m_NewSettings.NumThreads = NumThreads;
 					m_Decoder->SetNumThreads(NumThreads);
+					MakeDirty();
+				}
+			}
+			return TRUE;
+
+		case IDC_PROP_NUM_QUEUE_FRAMES:
+			if (HIWORD(wParam) == CBN_SELCHANGE && m_Decoder) {
+				const int NumQueueFrames = (int)::SendDlgItemMessage(hwnd, IDC_PROP_NUM_QUEUE_FRAMES, CB_GETCURSEL, 0, 0);
+				if (NumQueueFrames >= 0 && NumQueueFrames != m_NewSettings.NumQueueFrames) {
+					m_NewSettings.NumQueueFrames = NumQueueFrames;
+#if 0
+					ITVTestVideoDecoder2 *pDecoder2;
+					if (SUCCEEDED(m_Decoder->QueryInterface(IID_PPV_ARGS(&pDecoder2)))) {
+						pDecoder2->SetNumQueueFrames(NumQueueFrames);
+						pDecoder2->Release();
+					}
+#endif
 					MakeDirty();
 				}
 			}

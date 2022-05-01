@@ -51,6 +51,8 @@ enum TVTVIDEODEC_DeinterlaceMethod : int
 
 #define TVTVIDEODEC_MAX_THREADS 32
 
+#define TVTVIDEODEC_MAX_QUEUE_FRAMES 4
+
 struct TVTVIDEODEC_HardwareDecoderInfo
 {
 	WCHAR Description[512];
