@@ -1712,7 +1712,7 @@ STDMETHODIMP_(UINT) CTVTestVideoDecoder::GetNumQueueFrames()
 	return m_NumQueueFrames;
 }
 
-STDMETHODIMP CTVTestVideoDecoder::PropertyBag_Read(LPCOLESTR pszPropName, VARIANT *pVar, IErrorLog *pErrorLog)
+HRESULT CTVTestVideoDecoder::PropertyBag_Read(LPCOLESTR pszPropName, VARIANT *pVar, IErrorLog *pErrorLog)
 {
 	CheckPointer(pszPropName, E_POINTER);
 	CheckPointer(pVar, E_POINTER);
@@ -1770,7 +1770,7 @@ STDMETHODIMP CTVTestVideoDecoder::PropertyBag_Read(LPCOLESTR pszPropName, VARIAN
 	return ::VariantChangeType(pVar, &Var, 0, pVar->vt);
 }
 
-STDMETHODIMP CTVTestVideoDecoder::PropertyBag_Write(LPCOLESTR pszPropName, VARIANT *pVar)
+HRESULT CTVTestVideoDecoder::PropertyBag_Write(LPCOLESTR pszPropName, VARIANT *pVar)
 {
 	CheckPointer(pszPropName, E_POINTER);
 	CheckPointer(pVar, E_POINTER);
@@ -1850,7 +1850,7 @@ STDMETHODIMP CTVTestVideoDecoder::PropertyBag_Write(LPCOLESTR pszPropName, VARIA
 	return hr;
 }
 
-STDMETHODIMP CTVTestVideoDecoder::PropertyBag2_Read(
+HRESULT CTVTestVideoDecoder::PropertyBag2_Read(
 	ULONG cProperties, PROPBAG2 *pPropBag, IErrorLog *pErrLog, VARIANT *pvarValue, HRESULT *phrError)
 {
 	CheckPointer(pPropBag, E_POINTER);
@@ -1868,7 +1868,7 @@ STDMETHODIMP CTVTestVideoDecoder::PropertyBag2_Read(
 	return S_OK;
 }
 
-STDMETHODIMP CTVTestVideoDecoder::PropertyBag2_Write(
+HRESULT CTVTestVideoDecoder::PropertyBag2_Write(
 	ULONG cProperties, PROPBAG2 *pPropBag, VARIANT *pvarValue)
 {
 	CheckPointer(pPropBag, E_POINTER);
