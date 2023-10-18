@@ -28,6 +28,15 @@
 
 #define TVTVIDEODEC_FILTER_NAME L"TVTest DTV Video Decoder"
 
+#ifdef __CRT_UUID_DECL
+#define TVTVIDEODEC_DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
+	__CRT_UUID_DECL(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
+	DEFINE_GUID(IID_##name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8)
+#else
+#define TVTVIDEODEC_DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
+	DEFINE_GUID(IID_##name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8)
+#endif
+
 enum TVTVIDEODEC_DeinterlaceMethod : int
 {
 	TVTVIDEODEC_DEINTERLACE_WEAVE,
@@ -133,6 +142,7 @@ ITVTestVideoDecoderFrameCapture : public IUnknown
 {
 	STDMETHOD(OnFrame)(const TVTVIDEODEC_FrameInfo *pFrameInfo) PURE;
 };
+TVTVIDEODEC_DEFINE_GUID(ITVTestVideoDecoderFrameCapture, 0x37669070, 0x5574, 0x44DA, 0xBF, 0x20, 0xA8, 0x4A, 0x95, 0x99, 0x90, 0xB5);
 
 /* DirectShow decoder interface */
 MIDL_INTERFACE("AE0BF9FF-EBCE-4412-9EFC-C6EE86B20855")
@@ -170,6 +180,7 @@ ITVTestVideoDecoder : public IUnknown
 
 	STDMETHOD(SetFrameCapture)(ITVTestVideoDecoderFrameCapture *pFrameCapture) PURE;
 };
+TVTVIDEODEC_DEFINE_GUID(ITVTestVideoDecoder, 0xAE0BF9FF, 0xEBCE, 0x4412, 0x9E, 0xFC, 0xC6, 0xEE, 0x86, 0xB2, 0x08, 0x55);
 
 /* DirectShow decoder interface (+ D3D11 support) */
 MIDL_INTERFACE("59AA8CCF-2743-456D-B00B-8650B7FF0936")
@@ -180,6 +191,7 @@ ITVTestVideoDecoder2 : public ITVTestVideoDecoder
 	STDMETHOD(SetNumQueueFrames)(UINT NumFrames) PURE;
 	STDMETHOD_(UINT, GetNumQueueFrames)() PURE;
 };
+TVTVIDEODEC_DEFINE_GUID(ITVTestVideoDecoder2, 0x59AA8CCF, 0x2743, 0x456D, 0xB0, 0x0B, 0x86, 0x50, 0xB7, 0xFF, 0x09, 0x36);
 
 /* Stand-alone decoder interface */
 MIDL_INTERFACE("B08074A7-7033-4ABA-AC28-972F55543736")
@@ -201,6 +213,7 @@ ITVTestVideoFrameDecoder : public IUnknown
 	STDMETHOD(SetNumThreads)(int NumThreads) PURE;
 	STDMETHOD_(int, GetNumThreads)() PURE;
 };
+TVTVIDEODEC_DEFINE_GUID(ITVTestVideoFrameDecoder, 0xB08074A7, 0x7033, 0x4ABA, 0xAC, 0x28, 0x97, 0x2F, 0x55, 0x54, 0x37, 0x36);
 
 struct TVTestVideoDecoderInfo
 {
